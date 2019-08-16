@@ -40,7 +40,7 @@ ZeroMQ的Ø权衡。一方面，这个奇怪的名字降低了ZeroMQ在谷歌和
 
 
 
-## Acknowledgements
+## 致谢
 
 Thanks to Andy Oram for making [the O'Reilly book](http://shop.oreilly.com/product/0636920026136.do) happen, and editing this text.
 
@@ -49,41 +49,38 @@ Thanks to Bill Desmarais, Brian Dorsey, Daniel Lin, Eric Desgranges, Gonzalo Die
 
 # Chapter 1 - Basics
 ## Fixing the World
-How to explain ZeroMQ? Some of us start by saying all the wonderful things it does. *It's sockets on steroids. It's like mailboxes with routing. It's fast!* Others try to share their moment of enlightenment, that zap-pow-kaboom satori paradigm-shift moment when it all became obvious. *Things just become simpler. Complexity goes away. It opens the mind.*Others try to explain by comparison. *It's smaller, simpler, but still looks familiar.* Personally, I like to remember why we made ZeroMQ at all, because that's most likely where you, the reader, still are today.
+如何解释ZeroMQ?我们中的一些人从它所做的所有奇妙的事情开始说起。它的sockets在steroids上。它就像带有路由的邮箱。它很快! 其他人试图分享他们的顿悟时刻，即当一切都变得显而易见时，ap-pow-kaboom satori paradigm-shift moment。事情变得简单了。复杂性消失。它能开阔思维。*其他人试图通过比较来解释。它更小、更简单，但看起来仍然很眼熟。就我个人而言，我想要记住我们为什么要制作ZeroMQ，因为这很有可能就是你们读者今天仍然在做的事情。
 
-Programming is science dressed up as art because most of us don't understand the physics of software and it's rarely, if ever, taught. The physics of software is not algorithms, data structures, languages and abstractions. These are just tools we make, use, throw away. The real physics of software is the physics of people—specifically, our limitations when it comes to complexity, and our desire to work together to solve large problems in pieces. This is the science of programming: make building blocks that people can understand and use *easily*, and people will work together to solve the very largest problems.
+编程是一门伪装成艺术的科学，因为我们大多数人都不懂软件的物理原理，而且很少有人教过编程。
+软件的物理不是算法、数据结构、语言和抽象。这些只是我们制造、使用、丢弃的工具。软件真正的物理特性是人的物理特性——具体地说，是我们在复杂性方面的局限性，以及我们合作解决大问题的愿望。这是编程的科学:制作人们能够理解和使用的积木，然后人们将一起工作来解决最大的问题。
 
-We live in a connected world, and modern software has to navigate this world. So the building blocks for tomorrow's very largest solutions are connected and massively parallel. It's not enough for code to be "strong and silent" any more. Code has to talk to code. Code has to be chatty, sociable, well-connected. Code has to run like the human brain, trillions of individual neurons firing off messages to each other, a massively parallel network with no central control, no single point of failure, yet able to solve immensely difficult problems. And it's no accident that the future of code looks like the human brain, because the endpoints of every network are, at some level, human brains.
+我们生活在一个互联的世界，现代软件必须在这个世界中导航。因此，未来最大的解决方案的构建模块是相互连接和大规模并行的。仅仅让代码变得“强大而安静”是不够的。代码必须与代码对话。代码必须健谈、善于交际、关系良好。代码必须像人脑一样运行，数以万亿计的单个神经元相互发送信息，这是一个大规模的并行网络，没有中央控制，没有单点故障，但能够解决极其困难的问题。代码的未来看起来像人脑，这并非偶然，因为每个网络的端点，在某种程度上，都是人脑。
 
-If you've done any work with threads, protocols, or networks, you'll realize this is pretty much impossible. It's a dream. Even connecting a few programs across a few sockets is plain nasty when you start to handle real life situations. Trillions? The cost would be unimaginable. Connecting computers is so difficult that software and services to do this is a multi-billion dollar business.
+如果您使用线程、协议或网络做过任何工作，您就会发现这几乎是不可能的。这是一个梦。当您开始处理实际的情况时，即使跨几个scoket连接几个程序也是非常麻烦的。数万亿吗?其代价将是难以想象的。连接计算机是如此困难，以至于软件和服务要做这是一项数十亿美元的业务。
 
-So we live in a world where the wiring is years ahead of our ability to use it. We had a software crisis in the 1980s, when leading software engineers like Fred Brooks believed [there was no "Silver Bullet"](http://en.wikipedia.org/wiki/No_Silver_Bullet) to "promise even one order of magnitude of improvement in productivity, reliability, or simplicity".
+所以我们生活在一个线路比我们使用它的能力超前数年的世界里。上世纪80年代，我们经历了一场软件危机。当时，弗雷德•布鲁克斯(Fred Brooks)等顶尖软件工程师相信，没有什么“灵丹妙药”能“保证生产率、可靠性或简单性哪怕提高一个数量级”。
 
-Brooks missed free and open source software, which solved that crisis, enabling us to share knowledge efficiently. Today we face another software crisis, but it's one we don't talk about much. Only the largest, richest firms can afford to create connected applications. There is a cloud, but it's proprietary. Our data and our knowledge is disappearing from our personal computers into clouds that we cannot access and with which we cannot compete. Who owns our social networks? It is like the mainframe-PC revolution in reverse.
+布鲁克斯错过了免费和开源软件，正是这些软件解决了这场危机，使我们能够有效地共享知识。今天，我们面临着另一场软件危机，但我们很少谈论它。只有最大、最富有的公司才有能力创建连接的应用程序。有云，但它是私有的。我们的数据和知识正在从个人电脑上消失，变成我们无法访问、无法与之竞争的云。谁拥有我们的社交网络?这就像是反过来的大型机- pc革命。
 
-We can leave the political philosophy [for another book](http://cultureandempire.com/). The point is that while the Internet offers the potential of massively connected code, the reality is that this is out of reach for most of us, and so large interesting problems (in health, education, economics, transport, and so on) remain unsolved because there is no way to connect the code, and thus no way to connect the brains that could work together to solve these problems.
+我们可以把政治哲学留给另一本书。关键是,互联网提供了大量的潜在连接代码,现实情况是,对于大多数人来说,这是难以企及的,所以巨大而有趣的问题(在健康、教育、经济、交通、等等)仍然没有解决,因为没有办法连接代码,因此没有办法去连接可以一起工作的大脑来解决这些问题。
 
-There have been many attempts to solve the challenge of connected code. There are thousands of IETF specifications, each solving part of the puzzle. For application developers, HTTP is perhaps the one solution to have been simple enough to work, but it arguably makes the problem worse by encouraging developers and architects to think in terms of big servers and thin, stupid clients.
+已经有很多尝试来解决连接代码的挑战。有数以千计的IETF规范，每个规范都解决了这个难题的一部分。对于应用程序开发人员来说，HTTP可能是一个简单到足以工作的解决方案，但是它鼓励开发人员和架构师从大服务器和thin，stupid的客户机的角度考虑问题，从而使问题变得更糟。
 
-So today people are still connecting applications using raw UDP and TCP, proprietary protocols, HTTP, and Websockets. It remains painful, slow, hard to scale, and essentially centralized. Distributed P2P architectures are mostly for play, not work. How many applications use Skype or Bittorrent to exchange data?
+因此，今天人们仍然使用原始UDP和TCP、专有协议、HTTP和Websockets连接应用程序。它仍然痛苦、缓慢、难以扩展，而且本质上是集中的。分布式P2P架构主要是为了玩，而不是工作。有多少应用程序使用Skype或Bittorrent来交换数据?
 
-Which brings us back to the science of programming. To fix the world, we needed to do two things. One, to solve the general problem of "how to connect any code to any code, anywhere". Two, to wrap that up in the simplest possible building blocks that people could understand and use *easily*.
+这让我们回到编程科学。要改变世界，我们需要做两件事。第一，解决“如何在任何地方将任何代码连接到任何代码”的一般问题。第二，用最简单的模块来概括，让人们能够理解和使用。
 
-It sounds ridiculously simple. And maybe it is. That's kind of the whole point.
-
-
-
-| [Starting Assumptions](http://zguide.zeromq.org/page:all#Starting-Assumptions) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-8) [next](http://zguide.zeromq.org/page:all#header-10) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-We assume you are using at least version 3.2 of ZeroMQ. We assume you are using a Linux box or something similar. We assume you can read C code, more or less, as that's the default language for the examples. We assume that when we write constants like PUSH or SUBSCRIBE, you can imagine they are really called `ZMQ_PUSH` or `ZMQ_SUBSCRIBE` if the programming language needs it.
+这听起来简单得可笑。也许确实如此。这就是重点。
 
 
 
-| [Getting the Examples](http://zguide.zeromq.org/page:all#Getting-the-Examples) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-9) [next](http://zguide.zeromq.org/page:all#header-11) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 开始的前提
+
+我们假设您至少使用了ZeroMQ的3.2版。我们假设您正在使用Linux机器或类似的东西。我们假设您可以或多或少地阅读C代码，因为这是示例的默认语言。我们假设，当我们编写像PUSH或SUBSCRIBE这样的常量时，您可以想象它们实际上被称为' ZMQ_PUSH '或' ZMQ_SUBSCRIBE '(如果编程语言需要的话)。
+
+
+
+## 获取例子
 
 The examples live in a public [GitHub repository](https://github.com/imatix/zguide). The simplest way to get all the examples is to clone this repository:
 
@@ -91,38 +88,41 @@ The examples live in a public [GitHub repository](https://github.com/imatix/zgui
 git clone --depth=1 https://github.com/imatix/zguide.git
 ```
 
-Next, browse the examples subdirectory. You'll find examples by language. If there are examples missing in a language you use, you're encouraged to [submit a translation](http://zguide.zeromq.org/main:translate). This is how this text became so useful, thanks to the work of many people. All examples are licensed under MIT/X11.
+接下来，浏览examples子目录。你会通过语言找到例子。如果您使用的语言中缺少示例，建议您提交翻译。正是由于许多人的努力，这篇文章才变得如此有用。所有示例都是根据MIT/X11授权的。
 
 
 
-| [Ask and Ye Shall Receive](http://zguide.zeromq.org/page:all#Ask-and-Ye-Shall-Receive) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-10) [next](http://zguide.zeromq.org/page:all#header-12) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 有求必应
 
-So let's start with some code. We start of course with a Hello World example. We'll make a client and a server. The client sends "Hello" to the server, which replies with "World". Here's the server in C, which opens a ZeroMQ socket on port 5555, reads requests on it, and replies with "World" to each request:
+让我们从一些代码开始。当然，我们从Hello World的例子开始。我们将创建一个客户机和一个服务器。客户端向服务器发送“Hello”，服务器以“World”作为响应。这是C语言的服务器，它在端口5555上打开一个ZeroMQ scoket，读取请求，然后用“World”对每个请求进行响应:
 
 [hwserver: Hello World server in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:hwserver) | [C#](http://zguide.zeromq.org/cs:hwserver) | [Clojure](http://zguide.zeromq.org/clj:hwserver) | [CL](http://zguide.zeromq.org/lisp:hwserver) | [Delphi](http://zguide.zeromq.org/dpr:hwserver) | [Erlang](http://zguide.zeromq.org/es:hwserver) | [F#](http://zguide.zeromq.org/fsx:hwserver) | [Felix](http://zguide.zeromq.org/flx:hwserver) | [Go](http://zguide.zeromq.org/go:hwserver) | [Haskell](http://zguide.zeromq.org/hs:hwserver) | [Haxe](http://zguide.zeromq.org/hx:hwserver) | [Java](http://zguide.zeromq.org/java:hwserver) | [Lua](http://zguide.zeromq.org/lua:hwserver) | [Node.js](http://zguide.zeromq.org/js:hwserver) | [Objective-C](http://zguide.zeromq.org/m:hwserver)| [Perl](http://zguide.zeromq.org/pl:hwserver) | [PHP](http://zguide.zeromq.org/php:hwserver) | [Python](http://zguide.zeromq.org/py:hwserver) | [Q](http://zguide.zeromq.org/q:hwserver) | [Racket](http://zguide.zeromq.org/rkt:hwserver) | [Ruby](http://zguide.zeromq.org/rb:hwserver) | [Scala](http://zguide.zeromq.org/scala:hwserver) | [Tcl](http://zguide.zeromq.org/tcl:hwserver) | [Ada | Basic | ooc](http://zguide.zeromq.org/main:translate)
 
+### 图2 - Request-Reply
+
 ![fig2.png](https://github.com/imatix/zguide/raw/master/images/fig2.png)
 
-The REQ-REP socket pair is in lockstep. The client issues `zmq_send()` and then `zmq_recv()`, in a loop (or once if that's all it needs). Doing any other sequence (e.g., sending two messages in a row) will result in a return code of -1 from the `send` or `recv` call. Similarly, the service issues `zmq_recv()` and then `zmq_send()` in that order, as often as it needs to.
+REQ-REP套接字对是同步的。客户机在循环中发出zmq_send()然后zmq_recv()，在循环中(或者只需要执行一次)。执行任何其他序列(例如，在一行中发送两条消息)都会导致send或recv调用返回的代码为-1。类似地，服务按这个顺序发出zmq_recv()和zmq_send()，只要它需要。
 
-ZeroMQ uses C as its reference language and this is the main language we'll use for examples. If you're reading this online, the link below the example takes you to translations into other programming languages. Let's compare the same server in C++:
+ZeroMQ使用C作为参考语言，这是我们在示例中使用的主要语言。如果您正在在线阅读本文，下面的示例链接将带您到其他编程语言的翻译。让我们在c++中比较相同的服务器:
+```
+//Hello World server in C++
+//Binds REP socket to tcp://\*:5555
+//Expects "Hello" from client, replies with "World"
+//
+#include <zmq.hpp>
+#include <string>
+#include <iostream>
+#ifndef _WIN32
+#include <unistd.h>
+#else
+#include <windows.h>
 
-*////`  `Hello World server in C++//`  `Binds REP socket to tcp://\*:5555//`  `Expects "Hello" from client, replies with "World"//*
-\#include <zmq.hpp>
-\#include <string>
-\#include <iostream>
-\#ifndef _WIN32
-\#include <unistd.h>
-\#else
-\#include <windows.h>
-
-\#define sleep(n)`    `Sleep(n)
-\#endif
+#define sleep(n)    Sleep(n)
+#endif
 
 int main () {
 `    `*//  Prepare our context and socket*
@@ -147,11 +147,11 @@ int main () {
 `    }`
 `    `**return** 0;
 }
-
+```
 *hwserver.cpp: Hello World server*
 
 You can see that the ZeroMQ API is similar in C and C++. In a language like PHP or Java, we can hide even more and the code becomes even easier to read:
-
+```
 <?php
 */**`  `Hello World server\*`  `Binds REP socket to tcp://\*:5555\*`  `Expects "Hello" from client, replies with "World"\* @author Ian Barber <ian(dot)barber(at)gmail(dot)com>\*/*
 
@@ -172,41 +172,46 @@ $responder->bind("tcp://*:5555");
 `    `*//  Send reply back to client*
 `    `$responder->send("World");
 }
-
+```
 *hwserver.php: Hello World server*
+```
+package guide;
 
-**package** **guide**;
+//
+//  Hello World server in Java
+//  Binds REP socket to tcp://*:5555
+//  Expects "Hello" from client, replies with "World"
+//
 
-*////`  `Hello World server in Java//`  `Binds REP socket to tcp://\*:5555//`  `Expects "Hello" from client, replies with "World"//*
+import org.zeromq.SocketType;
+import org.zeromq.ZMQ;
+import org.zeromq.ZContext;
 
-**import** **org.zeromq.SocketType**;
-**import** **org.zeromq.ZMQ**;
-**import** **org.zeromq.ZContext**;
-
-**public** **class** **hwserver**
+public class hwserver
 {
-`    `**public** **static** void main(String[] args) **throws** Exception
-`    `{
-`        `**try** (ZContext context = **new** ZContext()) {
-`            `*// Socket to talk to clients*
-`            `ZMQ.Socket socket = context.createSocket(SocketType.REP);
-`            `socket.bind("tcp://*:5555");
+    public static void main(String[] args) throws Exception
+    {
+        try (ZContext context = new ZContext()) {
+            // Socket to talk to clients
+            ZMQ.Socket socket = context.createSocket(SocketType.REP);
+            socket.bind("tcp://*:5555");
 
-`            `**while** (!Thread.currentThread().isInterrupted()) {
-`                `byte[] reply = socket.recv(0);
-`                `System.out.println(
-`                    `"Received " + ": [" + **new** String(reply, ZMQ.CHARSET)+ "]"
-`                `);
+            while (!Thread.currentThread().isInterrupted()) {
+                byte[] reply = socket.recv(0);
+                System.out.println(
+                    "Received " + ": [" + new String(reply, ZMQ.CHARSET) + "]"
+                );
 
-`                `String response = "world";
-`                `socket.send(response.getBytes(ZMQ.CHARSET), 0);
+                String response = "world";
+                socket.send(response.getBytes(ZMQ.CHARSET), 0);
 
-`                `Thread.sleep(1000); *//  Do some 'work'*
-`            `}
-`        `}
-`    `}
+                Thread.sleep(1000); //  Do some 'work'
+            }
+        }
+    }
 }
 
+```
 *hwserver.java: Hello World server*
 
 The server in other languages:
@@ -216,47 +221,49 @@ The server in other languages:
 
 [C++](http://zguide.zeromq.org/cpp:hwserver) | [C#](http://zguide.zeromq.org/cs:hwserver) | [Clojure](http://zguide.zeromq.org/clj:hwserver) | [CL](http://zguide.zeromq.org/lisp:hwserver) | [Delphi](http://zguide.zeromq.org/dpr:hwserver) | [Erlang](http://zguide.zeromq.org/es:hwserver) | [F#](http://zguide.zeromq.org/fsx:hwserver) | [Felix](http://zguide.zeromq.org/flx:hwserver) | [Go](http://zguide.zeromq.org/go:hwserver) | [Haskell](http://zguide.zeromq.org/hs:hwserver) | [Haxe](http://zguide.zeromq.org/hx:hwserver) | [Java](http://zguide.zeromq.org/java:hwserver) | [Lua](http://zguide.zeromq.org/lua:hwserver) | [Node.js](http://zguide.zeromq.org/js:hwserver) | [Objective-C](http://zguide.zeromq.org/m:hwserver)| [Perl](http://zguide.zeromq.org/pl:hwserver) | [PHP](http://zguide.zeromq.org/php:hwserver) | [Python](http://zguide.zeromq.org/py:hwserver) | [Q](http://zguide.zeromq.org/q:hwserver) | [Racket](http://zguide.zeromq.org/rkt:hwserver) | [Ruby](http://zguide.zeromq.org/rb:hwserver) | [Scala](http://zguide.zeromq.org/scala:hwserver) | [Tcl](http://zguide.zeromq.org/tcl:hwserver) | [Ada | Basic | ooc](http://zguide.zeromq.org/main:translate)
 
+Here's the client code:
+
 [hwclient: Hello World client in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:hwclient) | [C#](http://zguide.zeromq.org/cs:hwclient) | [Clojure](http://zguide.zeromq.org/clj:hwclient) | [CL](http://zguide.zeromq.org/lisp:hwclient) | [Delphi](http://zguide.zeromq.org/dpr:hwclient) | [Erlang](http://zguide.zeromq.org/es:hwclient) | [F#](http://zguide.zeromq.org/fsx:hwclient) | [Felix](http://zguide.zeromq.org/flx:hwclient) | [Go](http://zguide.zeromq.org/go:hwclient) | [Haskell](http://zguide.zeromq.org/hs:hwclient) | [Haxe](http://zguide.zeromq.org/hx:hwclient) | [Java](http://zguide.zeromq.org/java:hwclient) | [Lua](http://zguide.zeromq.org/lua:hwclient) | [Node.js](http://zguide.zeromq.org/js:hwclient) | [Objective-C](http://zguide.zeromq.org/m:hwclient)| [Perl](http://zguide.zeromq.org/pl:hwclient) | [PHP](http://zguide.zeromq.org/php:hwclient) | [Python](http://zguide.zeromq.org/py:hwclient) | [Q](http://zguide.zeromq.org/q:hwclient) | [Racket](http://zguide.zeromq.org/rkt:hwclient) | [Ruby](http://zguide.zeromq.org/rb:hwclient) | [Scala](http://zguide.zeromq.org/scala:hwclient) | [Tcl](http://zguide.zeromq.org/tcl:hwclient) | [Ada | Basic | ooc](http://zguide.zeromq.org/main:translate)
 
-Let us explain briefly what these two programs are actually doing. They create a ZeroMQ context to work with, and a socket. Don't worry what the words mean. You'll pick it up. The server binds its REP (reply) socket to port 5555. The server waits for a request in a loop, and responds each time with a reply. The client sends a request and reads the reply back from the server.
+这看起来太简单了，不太现实，但是正如我们已经知道的，ZeroMQ套接字具有超能力。您可以同时将数千个客户机扔到这个服务器上，它将继续愉快而快速地工作。有趣的是，先启动客户机，然后再启动服务器，看看它是如何工作的，然后再考虑一下这意味着什么。
+让我们简要地解释一下这两个程序实际上在做什么。它们创建要使用的ZeroMQ context 和socket。不要担心这些词的意思。你会知道的。服务器将其REP (reply) socket 绑定到端口5555。服务器在一个循环中等待一个请求，每次都用一个响应来响应。客户机发送请求并从服务器读取响应。
 
-If you kill the server (Ctrl-C) and restart it, the client won't recover properly. Recovering from crashing processes isn't quite that easy. Making a reliable request-reply flow is complex enough that we won't cover it until [Reliable Request-Reply Patterns](http://zguide.zeromq.org/page:all#reliable-request-reply).
+如果您关闭服务器(Ctrl-C)并重新启动它，客户机将无法正常恢复。从进程崩溃中恢复并不那么容易。
+创建一个可靠的request-reply流非常复杂，直到可靠的Request-Reply模式才会涉及它。
 
-There is a lot happening behind the scenes but what matters to us programmers is how short and sweet the code is, and how often it doesn't crash, even under a heavy load. This is the request-reply pattern, probably the simplest way to use ZeroMQ. It maps to RPC and the classic client/server model.
+幕后发生了很多事情，但对我们程序员来说，重要的是代码有多短、多好，以及即使在重负载下也不会崩溃的频率。这是request-reply模式，可能是使用ZeroMQ的最简单方法。它映射到RPC和经典的 client/server模型。
 
 
 
-| [A Minor Note on Strings](http://zguide.zeromq.org/page:all#A-Minor-Note-on-Strings) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-11) [next](http://zguide.zeromq.org/page:all#header-13) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 需要对Strings小小的注意
 
-ZeroMQ doesn't know anything about the data you send except its size in bytes. That means you are responsible for formatting it safely so that applications can read it back. Doing this for objects and complex data types is a job for specialized libraries like Protocol Buffers. But even for strings, you need to take care.
+除了以字节为单位的大小外，ZeroMQ对您发送的数据一无所知。这意味着您要负责安全地格式化它，以便应用程序能够读取它。为对象和复杂数据类型执行此操作是专门库(如协议缓冲区)的工作。但即使是字符串，你也要小心。
 
-In C and some other languages, strings are terminated with a null byte. We could send a string like "HELLO" with that extra null byte:
-
+在C语言和其他一些语言中，字符串以空字节结束。我们可以发送一个字符串，如“HELLO”与额外的空字节:
+```
 zmq_send (requester, "Hello", 6, 0);
-
-However, if you send a string from another language, it probably will not include that null byte. For example, when we send that same string in Python, we do this:
-
+```
+但是，如果您从另一种语言发送一个字符串，它可能不会包含那个空字节。例如，当我们用Python发送相同的字符串时，我们这样做:
+```
 socket.send ("Hello")
+```
+然后连接到线路上的是长度(对于较短的字符串是一个字节)和作为单个字符的字符串内容。
 
-Then what goes onto the wire is a length (one byte for shorter strings) and the string contents as individual characters.
-
-**Figure 3 - A ZeroMQ string**
+### 图 3 - ZeroMQ的 string
 
 ![fig3.png](https://github.com/imatix/zguide/raw/master/images/fig3.png)
 
-And if you read this from a C program, you will get something that looks like a string, and might by accident act like a string (if by luck the five bytes find themselves followed by an innocently lurking null), but isn't a proper string. When your client and server don't agree on the string format, you will get weird results.
+如果您从C程序中读取这段代码，您将得到一个看起来像字符串的东西，并且可能意外地表现得像字符串(如果幸运的话，这5个字节后面跟着一个无辜的潜伏的null)，但是它不是一个正确的字符串。当您的客户机和服务器不同意字符串格式时，您将得到奇怪的结果。
 
-When you receive string data from ZeroMQ in C, you simply cannot trust that it's safely terminated. Every single time you read a string, you should allocate a new buffer with space for an extra byte, copy the string, and terminate it properly with a null.
+当您在C语言中从ZeroMQ接收字符串数据时，您不能简单地相信它已经安全终止。每次读取字符串时，都应该为额外的字节分配一个带空间的新缓冲区，复制字符串，并使用null正确地终止它。
 
-So let's establish the rule that **ZeroMQ strings are length-specified and are sent on the wire without a trailing null**. In the simplest case (and we'll do this in our examples), a ZeroMQ string maps neatly to a ZeroMQ message frame, which looks like the above figure—a length and some bytes.
+因此，让我们建立一个规则，即**ZeroMQ字符串是指定长度的，并且在传输时不带null**。在最简单的情况下(在我们的示例中我们将这样做)，ZeroMQ字符串整洁地映射到ZeroMQ消息框架，它看起来像上面的图—长度和一些字节。
 
-Here is what we need to do, in C, to receive a ZeroMQ string and deliver it to the application as a valid C string:
-
+在C语言中，我们需要做的是接收一个ZeroMQ字符串并将其作为一个有效的C字符串发送给应用程序:
+```
 *//`  `Receive ZeroMQ string from socket and convert into C string//`  `Chops string at 255 chars, if it's longer*
 **static** char *
 s_recv (void *socket) {
@@ -270,82 +277,80 @@ s_recv (void *socket) {
 `    `*/\* use strndup(buffer, sizeof(buffer)-1) in \*nix **/
 `    `**return** strdup (buffer);
 }
+```
+这是一个方便的helper函数，本着使我们可以有效重用的精神，让我们编写一个类似的s_send函数，它以正确的ZeroMQ格式发送字符串，并将其打包到一个可以重用的头文件中。
 
-This makes a handy helper function and in the spirit of making things we can reuse profitably, let's write a similar `s_send` function that sends strings in the correct ZeroMQ format, and package this into a header file we can reuse.
-
-The result is `zhelpers.h`, which lets us write sweeter and shorter ZeroMQ applications in C. It is a fairly long source, and only fun for C developers, so [read it at leisure](https://github.com/imatix/zguide/blob/master/examples/C/zhelpers.h).
+结果是zhelpers.h,它是一个相当长的源代码，而且只对C开发人员有乐趣，所以请在闲暇时阅读它。
 
 
 
-| [Version Reporting](http://zguide.zeromq.org/page:all#Version-Reporting) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-12) [next](http://zguide.zeromq.org/page:all#header-14) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 版本报告
+ZeroMQ有几个版本，通常，如果遇到问题，它会在以后的版本中得到修复。所以这是一个很有用的技巧，可以准确地知道您实际链接的是哪个版本的ZeroMQ。
 
-ZeroMQ does come in several versions and quite often, if you hit a problem, it'll be something that's been fixed in a later version. So it's a useful trick to know *exactly* what version of ZeroMQ you're actually linking with.
-
-Here is a tiny program that does that:
+这里有一个小程序可以做到这一点:
 
 [version: ZeroMQ version reporting in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:version) | [C#](http://zguide.zeromq.org/cs:version) | [Clojure](http://zguide.zeromq.org/clj:version) | [CL](http://zguide.zeromq.org/lisp:version) | [Delphi](http://zguide.zeromq.org/dpr:version) | [Erlang](http://zguide.zeromq.org/es:version) | [F#](http://zguide.zeromq.org/fsx:version) | [Felix](http://zguide.zeromq.org/flx:version) | [Go](http://zguide.zeromq.org/go:version) | [Haskell](http://zguide.zeromq.org/hs:version) | [Java](http://zguide.zeromq.org/java:version) | [Lua](http://zguide.zeromq.org/lua:version) | [Node.js](http://zguide.zeromq.org/js:version) | [Objective-C](http://zguide.zeromq.org/m:version) | [Perl](http://zguide.zeromq.org/pl:version)| [PHP](http://zguide.zeromq.org/php:version) | [Python](http://zguide.zeromq.org/py:version) | [Q](http://zguide.zeromq.org/q:version) | [Ruby](http://zguide.zeromq.org/rb:version) | [Scala](http://zguide.zeromq.org/scala:version) | [Tcl](http://zguide.zeromq.org/tcl:version) | [Ada | Basic | Haxe | ooc | Racket](http://zguide.zeromq.org/main:translate)
 
-| [Getting the Message Out](http://zguide.zeromq.org/page:all#Getting-the-Message-Out) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-13) [next](http://zguide.zeromq.org/page:all#header-15) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-The second classic pattern is one-way data distribution, in which a server pushes updates to a set of clients. Let's see an example that pushes out weather updates consisting of a zip code, temperature, and relative humidity. We'll generate random values, just like the real weather stations do.
-
-Here's the server. We'll use port 5556 for this application:
+## 传达信息
+第二个经典模式是单向数据分发，其中服务器将更新推送到一组客户机。让我们看一个示例，它推出由邮政编码、温度和相对湿度组成的天气更新。我们将生成随机值，就像真实的气象站所做的那样。
+这是服务器。我们将为这个应用程序使用端口5556:
 
 [wuserver: Weather update server in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:wuserver) | [C#](http://zguide.zeromq.org/cs:wuserver) | [Clojure](http://zguide.zeromq.org/clj:wuserver) | [CL](http://zguide.zeromq.org/lisp:wuserver) | [Delphi](http://zguide.zeromq.org/dpr:wuserver) | [Erlang](http://zguide.zeromq.org/es:wuserver) | [F#](http://zguide.zeromq.org/fsx:wuserver) | [Felix](http://zguide.zeromq.org/flx:wuserver) | [Go](http://zguide.zeromq.org/go:wuserver) | [Haskell](http://zguide.zeromq.org/hs:wuserver) | [Haxe](http://zguide.zeromq.org/hx:wuserver) | [Java](http://zguide.zeromq.org/java:wuserver) | [Lua](http://zguide.zeromq.org/lua:wuserver) | [Node.js](http://zguide.zeromq.org/js:wuserver) | [Objective-C](http://zguide.zeromq.org/m:wuserver)| [Perl](http://zguide.zeromq.org/pl:wuserver) | [PHP](http://zguide.zeromq.org/php:wuserver) | [Python](http://zguide.zeromq.org/py:wuserver) | [Racket](http://zguide.zeromq.org/rkt:wuserver) | [Ruby](http://zguide.zeromq.org/rb:wuserver) | [Scala](http://zguide.zeromq.org/scala:wuserver) | [Tcl](http://zguide.zeromq.org/tcl:wuserver) | [Ada | Basic | ooc | Q](http://zguide.zeromq.org/main:translate)
 
-Here is the client application, which listens to the stream of updates and grabs anything to do with a specified zip code, by default New York City because that's a great place to start any adventure:
+这个更新流没有起点也没有终点，就像一个永无止境的广播。
+
+下面是客户端应用程序，它监听更新流并获取与指定zip code有关的任何内容，默认情况下，纽约是开始任何冒险的好地方:
 
 [wuclient: Weather update client in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:wuclient) | [C#](http://zguide.zeromq.org/cs:wuclient) | [Clojure](http://zguide.zeromq.org/clj:wuclient) | [CL](http://zguide.zeromq.org/lisp:wuclient) | [Delphi](http://zguide.zeromq.org/dpr:wuclient) | [Erlang](http://zguide.zeromq.org/es:wuclient) | [F#](http://zguide.zeromq.org/fsx:wuclient) | [Felix](http://zguide.zeromq.org/flx:wuclient) | [Go](http://zguide.zeromq.org/go:wuclient) | [Haskell](http://zguide.zeromq.org/hs:wuclient) | [Haxe](http://zguide.zeromq.org/hx:wuclient) | [Java](http://zguide.zeromq.org/java:wuclient) | [Lua](http://zguide.zeromq.org/lua:wuclient) | [Node.js](http://zguide.zeromq.org/js:wuclient) | [Objective-C](http://zguide.zeromq.org/m:wuclient)| [Perl](http://zguide.zeromq.org/pl:wuclient) | [PHP](http://zguide.zeromq.org/php:wuclient) | [Python](http://zguide.zeromq.org/py:wuclient) | [Racket](http://zguide.zeromq.org/rkt:wuclient) | [Ruby](http://zguide.zeromq.org/rb:wuclient) | [Scala](http://zguide.zeromq.org/scala:wuclient) | [Tcl](http://zguide.zeromq.org/tcl:wuclient) | [Ada | Basic | ooc | Q](http://zguide.zeromq.org/main:translate)
+### 图 4 - Publish-Subscribe
 
 ![fig4.png](https://github.com/imatix/zguide/raw/master/images/fig4.png)
 
-Note that when you use a SUB socket you **must** set a subscription using `zmq_setsockopt()`and SUBSCRIBE, as in this code. If you don't set any subscription, you won't get any messages. It's a common mistake for beginners. The subscriber can set many subscriptions, which are added together. That is, if an update matches ANY subscription, the subscriber receives it. The subscriber can also cancel specific subscriptions. A subscription is often, but not necessarily a printable string. See `zmq_setsockopt()` for how this works.
+注意，当您使用 SUB socket 时，必须使用zmq_setsockopt()和SUBSCRIBE设置订阅，如下面的代码所示。如果不设置任何订阅，就不会收到任何消息。这是初学者常犯的错误。订阅者可以设置许多订阅，这些订阅被添加到一起。也就是说，如果更新匹配任何订阅，订阅方将接收更新。订阅者还可以取消特定的订阅。订阅通常是，但不一定是可打印的字符串。请参阅zmq_setsockopt()了解其工作原理。
 
-The PUB-SUB socket pair is asynchronous. The client does `zmq_recv()`, in a loop (or once if that's all it needs). Trying to send a message to a SUB socket will cause an error. Similarly, the service does `zmq_send()` as often as it needs to, but must not do `zmq_recv()` on a PUB socket.
+PUB-SUB socket 对（双方的意思）是异步的。客户机在循环中执行zmq_recv()(或者它只需要一次)。试图向 SUB socket发送消息将导致错误（单向的只能收不能发）。类似地，服务在需要的时候执行zmq_send()，但是不能在PUB scoket上执行zmq_recv()（单向的只能发不能收）。
 
-In theory with ZeroMQ sockets, it does not matter which end connects and which end binds. However, in practice there are undocumented differences that I'll come to later. For now, bind the PUB and connect the SUB, unless your network design makes that impossible.
+理论上，对于ZeroMQ sockets，哪一端连接和哪一端绑定并不重要。然而，在实践中有一些未记录的差异，我将在稍后讨论。现在，绑定PUB并连接SUB，除非您的网络设计不允许这样做。
 
-There is one more important thing to know about PUB-SUB sockets: you do not know precisely when a subscriber starts to get messages. Even if you start a subscriber, wait a while, and then start the publisher, **the subscriber will always miss the first messages that the publisher sends**. This is because as the subscriber connects to the publisher (something that takes a small but non-zero time), the publisher may already be sending messages out.
+关于 PUB-SUB sockets，还有一件更重要的事情需要了解:您不知道订阅者何时开始接收消息。即使启动订阅服务器，等一下，然后启动发布服务器，订阅服务器也始终会错过发布服务器发送的第一个消息。这是因为当订阅服务器连接到发布服务器时(这需要一点时间，但不是零)，发布服务器可能已经在发送消息了。
 
-This "slow joiner" symptom hits enough people often enough that we're going to explain it in detail. Remember that ZeroMQ does asynchronous I/O, i.e., in the background. Say you have two nodes doing this, in this order:
+这种“慢速加入者”症状经常出现在很多人身上，我们将对此进行详细解释。
+记住ZeroMQ执行异步I/O，即，在后台。假设有两个节点按如下顺序执行此操作:
 
-- Subscriber connects to an endpoint and receives and counts messages.
-- Publisher binds to an endpoint and immediately sends 1,000 messages.
+- 订阅者连接到端点并接收和计数消息。
+- 发布者绑定到端点并立即发送1,000条消息。
 
-Then the subscriber will most likely not receive anything. You'll blink, check that you set a correct filter and try again, and the subscriber will still not receive anything.
+那么订阅者很可能不会收到任何东西。您会闪烁（困扰？），检查是否设置了正确的过滤器，然后重试一次，订阅者仍然不会收到任何内容。
 
-Making a TCP connection involves to and from handshaking that takes several milliseconds depending on your network and the number of hops between peers. In that time, ZeroMQ can send many messages. For sake of argument assume it takes 5 msecs to establish a connection, and that same link can handle 1M messages per second. During the 5 msecs that the subscriber is connecting to the publisher, it takes the publisher only 1 msec to send out those 1K messages.
+建立TCP连接涉及到握手和握手，握手需要几毫秒，这取决于您的网络和对等点之间的跳数。在这段时间里，ZeroMQ可以发送许多消息。为了便于讨论，假设建立一个连接需要5毫秒，并且相同的链接每秒可以处理1M条消息。在订阅者连接到发布者的5毫秒期间，发布者只需要1毫秒就可以发送那些1K消息。
 
-In [Sockets and Patterns](http://zguide.zeromq.org/page:all#sockets-and-patterns) we'll explain how to synchronize a publisher and subscribers so that you don't start to publish data until the subscribers really are connected and ready. There is a simple and stupid way to delay the publisher, which is to sleep. Don't do this in a real application, though, because it is extremely fragile as well as inelegant and slow. Use sleeps to prove to yourself what's happening, and then wait for [Sockets and Patterns](http://zguide.zeromq.org/page:all#sockets-and-patterns) to see how to do this right.
+在Sockets and Patterns中，我们将解释如何同步发布者和订阅者，以便在订阅者真正连接并准备好之前不会开始发布数据。有一个简单而愚蠢的方法可以延迟发布，那就是sleep。但是，不要在实际应用程序中这样做，因为它非常脆弱、不优雅且速度很慢。使用sleep向您自己证明发生了什么，然后等待Sockets and Patterns来查看如何正确地执行此操作。
 
-The alternative to synchronization is to simply assume that the published data stream is infinite and has no start and no end. One also assumes that the subscriber doesn't care what transpired before it started up. This is how we built our weather client example.
+同步的另一种选择是简单地假设发布的数据流是无限的，没有开始和结束。还有一种假设是订阅者不关心在启动之前发生了什么。这是我们如何构建天气客户端示例的。
 
-So the client subscribes to its chosen zip code and collects 100 updates for that zip code. That means about ten million updates from the server, if zip codes are randomly distributed. You can start the client, and then the server, and the client will keep working. You can stop and restart the server as often as you like, and the client will keep working. When the client has collected its hundred updates, it calculates the average, prints it, and exits.
+因此，客户端订阅其选择的zip code，并为该zip code收集100个更新。如果zip code是随机分布的，这意味着大约有一千万次来自服务器的更新。您可以启动客户机，然后启动服务器，客户机将继续工作。您可以随时停止和重启服务器，客户机将继续工作。当客户机收集了它的100个更新后，它计算平均值，打印并退出。
 
-Some points about the publish-subscribe (pub-sub) pattern:
+关于发布-订阅(发布-订阅) publish-subscribe (pub-sub) 模式的几点:
 
-- A subscriber can connect to more than one publisher, using one connect call each time. Data will then arrive and be interleaved ("fair-queued") so that no single publisher drowns out the others.
+- 订阅服务器可以连接到多个发布服务器，每次使用一个连接调用。然后，数据将到达并交错(“公平排队”)，这样就不会有一个发布者淹没其他发布者。
 
-- If a publisher has no connected subscribers, then it will simply drop all messages.
+- 如果发布者没有连接的订阅者，那么它将删除所有消息。
 
-- If you're using TCP and a subscriber is slow, messages will queue up on the publisher. We'll look at how to protect publishers against this using the "high-water mark" later.
+- 如果您正在使用TCP，而订阅服务器很慢，则消息将在发布服务器上排队。稍后，我们将研究如何使用“高水位标记(high-water mark)”来保护publishers 不受此影响。
 
-- From ZeroMQ v3.x, filtering happens at the publisher side when using a connected protocol (`tcp://` or `ipc://`). Using the `epgm://` protocol, filtering happens at the subscriber side. In ZeroMQ v2.x, all filtering happened at the subscriber side.
+从ZeroMQ v3.x，当使用连接的协议(tcp://或ipc://)时，过滤发生在发布端。
+使用epgm://协议，过滤发生在订阅方。在ZeroMQ v2.x，所有过滤都发生在订阅端。
 
-This is how long it takes to receive and filter 10M messages on my laptop, which is an 2011-era Intel i5, decent but nothing special:
+我的笔记本电脑是2011年的英特尔i5，接收和过滤1000万条信息的时间是这样的:
 
 ```
 $ time wuclient
@@ -359,34 +364,30 @@ sys     0m0.008s
 
 
 
-| [Divide and Conquer](http://zguide.zeromq.org/page:all#Divide-and-Conquer) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-14) [next](http://zguide.zeromq.org/page:all#header-16) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-**Figure 5 - Parallel Pipeline**
+## Divide and Conquer(分而治之)
+**图 5 - Parallel Pipeline**
 
 ![fig5.png](https://github.com/imatix/zguide/raw/master/images/fig5.png)
 
-As a final example (you are surely getting tired of juicy code and want to delve back into philological discussions about comparative abstractive norms), let's do a little supercomputing. Then coffee. Our supercomputing application is a fairly typical parallel processing model. We have:
+作为最后一个例子(您肯定已经厌倦了有趣的代码，并希望重新研究比较抽象规范的语言学讨论)，让我们来做一些超级计算。然后咖啡。我们的超级计算应用程序是一个相当典型的并行处理模型。我们有:
 
-- A ventilator that produces tasks that can be done in parallel
-- A set of workers that process tasks
-- A sink that collects results back from the worker processes
+- 可同时完成多项任务的ventilator 
+- 一组处理任务的workers 
+- 从工作进程收集结果的sink 
 
-In reality, workers run on superfast boxes, perhaps using GPUs (graphic processing units) to do the hard math. Here is the ventilator. It generates 100 tasks, each a message telling the worker to sleep for some number of milliseconds:
+在现实中，workers 在超级快的机器上运行，可能使用gpu(图形处理单元)来做艰难的计算。这是ventilator 。它会生成100个任务，每个任务都有一条消息告诉worker睡眠几毫秒:
 
 [taskvent: Parallel task ventilator in C](javascript:;)
 
-
 [C++](http://zguide.zeromq.org/cpp:taskvent) | [C#](http://zguide.zeromq.org/cs:taskvent) | [Clojure](http://zguide.zeromq.org/clj:taskvent) | [CL](http://zguide.zeromq.org/lisp:taskvent) | [Delphi](http://zguide.zeromq.org/dpr:taskvent) | [Erlang](http://zguide.zeromq.org/es:taskvent) | [F#](http://zguide.zeromq.org/fsx:taskvent) | [Felix](http://zguide.zeromq.org/flx:taskvent) | [Go](http://zguide.zeromq.org/go:taskvent) | [Haskell](http://zguide.zeromq.org/hs:taskvent) | [Haxe](http://zguide.zeromq.org/hx:taskvent) | [Java](http://zguide.zeromq.org/java:taskvent) | [Lua](http://zguide.zeromq.org/lua:taskvent) | [Node.js](http://zguide.zeromq.org/js:taskvent) | [Objective-C](http://zguide.zeromq.org/m:taskvent)| [Perl](http://zguide.zeromq.org/pl:taskvent) | [PHP](http://zguide.zeromq.org/php:taskvent) | [Python](http://zguide.zeromq.org/py:taskvent) | [Ruby](http://zguide.zeromq.org/rb:taskvent) | [Scala](http://zguide.zeromq.org/scala:taskvent) | [Tcl](http://zguide.zeromq.org/tcl:taskvent) | [Ada | Basic | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
+这是worker应用程序。它接收到一条消息，休眠几秒钟，然后发出信号，表示它已经完成:
 [taskwork: Parallel task worker in C](javascript:;)
-
 
 [C++](http://zguide.zeromq.org/cpp:taskwork) | [C#](http://zguide.zeromq.org/cs:taskwork) | [Clojure](http://zguide.zeromq.org/clj:taskwork) | [CL](http://zguide.zeromq.org/lisp:taskwork) | [Delphi](http://zguide.zeromq.org/dpr:taskwork) | [Erlang](http://zguide.zeromq.org/es:taskwork) | [F#](http://zguide.zeromq.org/fsx:taskwork) | [Felix](http://zguide.zeromq.org/flx:taskwork) | [Go](http://zguide.zeromq.org/go:taskwork) | [Haskell](http://zguide.zeromq.org/hs:taskwork) | [Haxe](http://zguide.zeromq.org/hx:taskwork) | [Java](http://zguide.zeromq.org/java:taskwork) | [Lua](http://zguide.zeromq.org/lua:taskwork) | [Node.js](http://zguide.zeromq.org/js:taskwork) | [Objective-C](http://zguide.zeromq.org/m:taskwork)| [Perl](http://zguide.zeromq.org/pl:taskwork) | [PHP](http://zguide.zeromq.org/php:taskwork) | [Python](http://zguide.zeromq.org/py:taskwork) | [Ruby](http://zguide.zeromq.org/rb:taskwork) | [Scala](http://zguide.zeromq.org/scala:taskwork) | [Tcl](http://zguide.zeromq.org/tcl:taskwork) | [Ada | Basic | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
+下面是sink应用程序。它收集了100个任务，然后计算出整个处理过程花费了多长时间，这样我们就可以确认，如果有多个任务，那么这些工人确实是并行运行的:
 [tasksink: Parallel task sink in C](javascript:;)
-
 
 [C++](http://zguide.zeromq.org/cpp:tasksink) | [C#](http://zguide.zeromq.org/cs:tasksink) | [Clojure](http://zguide.zeromq.org/clj:tasksink) | [CL](http://zguide.zeromq.org/lisp:tasksink) | [Delphi](http://zguide.zeromq.org/dpr:tasksink) | [Erlang](http://zguide.zeromq.org/es:tasksink) | [F#](http://zguide.zeromq.org/fsx:tasksink) | [Felix](http://zguide.zeromq.org/flx:tasksink) | [Go](http://zguide.zeromq.org/go:tasksink) | [Haskell](http://zguide.zeromq.org/hs:tasksink) | [Haxe](http://zguide.zeromq.org/hx:tasksink) | [Java](http://zguide.zeromq.org/java:tasksink) | [Lua](http://zguide.zeromq.org/lua:tasksink) | [Node.js](http://zguide.zeromq.org/js:tasksink) | [Objective-C](http://zguide.zeromq.org/m:tasksink)| [Perl](http://zguide.zeromq.org/pl:tasksink) | [PHP](http://zguide.zeromq.org/php:tasksink) | [Python](http://zguide.zeromq.org/py:tasksink) | [Ruby](http://zguide.zeromq.org/rb:tasksink) | [Scala](http://zguide.zeromq.org/scala:tasksink) | [Tcl](http://zguide.zeromq.org/tcl:tasksink) | [Ada | Basic | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
@@ -394,88 +395,79 @@ In reality, workers run on superfast boxes, perhaps using GPUs (graphic processi
 - 2 workers: total elapsed time: 2421 msecs.
 - 4 workers: total elapsed time: 1018 msecs.
 
-Let's look at some aspects of this code in more detail:
+让我们更详细地看看这段代码的一些方面:
 
-- The workers connect upstream to the ventilator, and downstream to the sink. This means you can add workers arbitrarily. If the workers bound to their endpoints, you would need (a) more endpoints and (b) to modify the ventilator and/or the sink each time you added a worker. We say that the ventilator and sink are *stable* parts of our architecture and the workers are *dynamic* parts of it.
+- worker将上游连接到ventilator ，下游连接到sink。这意味着可以任意添加worker。如果worker绑定到他们的端点，您将需要(a)更多的端点和(b)每次添加worker时修改ventilator 和/或sink。我们说ventilator 和sink是我们建筑的“稳定”部分，worker是建筑的“动态”部分。
 
-- We have to synchronize the start of the batch with all workers being up and running. This is a fairly common gotcha in ZeroMQ and there is no easy solution. The `zmq_connect` method takes a certain time. So when a set of workers connect to the ventilator, the first one to successfully connect will get a whole load of messages in that short time while the others are also connecting. If you don't synchronize the start of the batch somehow, the system won't run in parallel at all. Try removing the wait in the ventilator, and see what happens.
+- 我们必须在所有worker正在启动和运行后开始批处理(We have to synchronize the start of the batch with all workers being up and running.)。这是ZeroMQ中一个相当常见的问题，没有简单的解决方案。' zmq_connect '方法需要一定的时间。因此，当一组worker连接到ventilator 时，第一个成功连接的worker将在短时间内获得大量信息，而其他worker也在连接。如果不以某种方式同步批处理的开始，系统就根本不会并行运行。试着把ventilator 里的等待时间去掉，看看会发生什么。
 
-- The ventilator's PUSH socket distributes tasks to workers (assuming they are all connected *before* the batch starts going out) evenly. This is called *load balancing* and it's something we'll look at again in more detail.
+- ventilator 的PUSH socket 将任务分配给worker(假设他们在批处理开始输出之前都连接好了)。这就是所谓的“负载平衡”，我们将再次详细讨论它。
 
-- The sink's PULL socket collects results from workers evenly. This is called *fair-queuing*.
-
-**Figure 6 - Fair Queuing**
+- sink的PULL均匀地收集worker的结果。这叫做“公平排队”。
+**图 6 - Fair Queuing**
 
 ![fig6.png](https://github.com/imatix/zguide/raw/master/images/fig6.png)
 
-The pipeline pattern also exhibits the "slow joiner" syndrome, leading to accusations that PUSH sockets don't load balance properly. If you are using PUSH and PULL, and one of your workers gets way more messages than the others, it's because that PULL socket has joined faster than the others, and grabs a lot of messages before the others manage to connect. If you want proper load balancing, you probably want to look at the load balancing pattern in [Advanced Request-Reply Patterns](http://zguide.zeromq.org/page:all#advanced-request-reply).
+管道模式(pipeline pattern)还表现出“慢连接者”综合征，导致指责PUSH sockets不能正确地平衡负载。如果您正在使用 PUSH 和 PULL，而您的一个worker获得的消息比其他worker多得多，这是因为这个PULL socket连接得比其他worker更快，并且在其他worker设法连接之前捕获了大量消息。如果您想要适当的负载平衡，您可能需要查看Advanced Request-Reply Patterns中的负载平衡模式。
 
 
 
-| [Programming with ZeroMQ](http://zguide.zeromq.org/page:all#Programming-with-ZeroMQ) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-15) [next](http://zguide.zeromq.org/page:all#header-17) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## ZeroMQ编程
+看过一些例子之后，您一定很想开始在一些应用程序中使用ZeroMQ。在你开始之前，深呼吸，放松，并思考一些基本的建议，这会帮你减轻很多压力和困惑。
 
-Having seen some examples, you must be eager to start using ZeroMQ in some apps. Before you start that, take a deep breath, chillax, and reflect on some basic advice that will save you much stress and confusion.
+- 循序渐进的学习ZeroMQ。它只是一个简单的API，但它隐藏了大量的可能性。慢慢地把握每一种可能性。
 
-- Learn ZeroMQ step-by-step. It's just one simple API, but it hides a world of possibilities. Take the possibilities slowly and master each one.
+- 写好代码。丑陋的代码隐藏了问题，让别人很难帮助你。您可能已经习惯了无意义的变量名，但是阅读您代码的人不会习惯。使用真实的单词，而不是“我太粗心了，不能告诉您这个变量的真正用途”。使用一致的缩进和干净的布局。写好代码，你的世界就会更舒适。
 
-- Write nice code. Ugly code hides problems and makes it hard for others to help you. You might get used to meaningless variable names, but people reading your code won't. Use names that are real words, that say something other than "I'm too careless to tell you what this variable is really for". Use consistent indentation and clean layout. Write nice code and your world will be more comfortable.
+- 一边做一边测试。当您的程序无法工作时，您应该知道应该归咎于哪五行。当你使用极具魅力的ZeroMQ的时候，这一点尤其正确，因为在你开始尝试的几次之后，它都不会起作用。
 
-- Test what you make as you make it. When your program doesn't work, you should know what five lines are to blame. This is especially true when you do ZeroMQ magic, which just *won't* work the first few times you try it.
+- - 当您发现有些东西不像预期的那样工作时，将您的代码分成几部分，测试每一部分，看看哪一部分不工作。ZeroMQ允许你编写模块化代码;利用这一点。
 
-- When you find that things don't work as expected, break your code into pieces, test each one, see which one is not working. ZeroMQ lets you make essentially modular code; use that to your advantage.
-
-- Make abstractions (classes, methods, whatever) as you need them. If you copy/paste a lot of code, you're going to copy/paste errors, too.
+- 根据需要进行抽象(类、方法等)。如果你复制/粘贴了很多代码，你也会复制/粘贴错误。
 
 
 
-| [Getting the Context Right](http://zguide.zeromq.org/page:all#Getting-the-Context-Right) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-16) [next](http://zguide.zeromq.org/page:all#header-18) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 正确理解 Context 
 
-ZeroMQ applications always start by creating a *context*, and then using that for creating sockets. In C, it's the `zmq_ctx_new()` call. You should create and use exactly one context in your process. Technically, the context is the container for all sockets in a single process, and acts as the transport for `inproc` sockets, which are the fastest way to connect threads in one process. If at runtime a process has two contexts, these are like separate ZeroMQ instances. If that's explicitly what you want, OK, but otherwise remember:
+ZeroMQ应用程序总是从创建Context开始，然后使用Context创建sockets。在C语言中，它是zmq_ctx_new()调用。您应该在流程中创建并使用一个Context。从技术上讲，Context是一个进程中所有sockets的容器，它充当inproc sockets的传输，inproc sockets是在一个进程中连接线程的最快方式。如果在运行时一个流程有两个Context，那么它们就像独立的ZeroMQ实例。如果这是你明确想要的，好的，否则记住:
 
 **Call zmq_ctx_new() once at the start of a process, and zmq_ctx_destroy() once at the end.**
 
-If you're using the `fork()` system call, do `zmq_ctx_new()` *after* the fork and at the beginning of the child process code. In general, you want to do interesting (ZeroMQ) stuff in the children, and boring process management in the parent.
+在流程开始时调用zmq_ctx_new()一次，在流程结束时调用zmq_ctx_destroy()一次。
+如果使用fork()系统调用，那么在fork之后和子进程代码的开头执行zmq_ctx_new()。通常，您希望在子进程中执行有趣的(ZeroMQ)操作，而在父进程中执行乏味的流程管理。
 
 
 
-| [Making a Clean Exit](http://zguide.zeromq.org/page:all#Making-a-Clean-Exit) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-17) [next](http://zguide.zeromq.org/page:all#header-19) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 退出前清理
 
-Classy programmers share the same motto as classy hit men: always clean-up when you finish the job. When you use ZeroMQ in a language like Python, stuff gets automatically freed for you. But when using C, you have to carefully free objects when you're finished with them or else you get memory leaks, unstable applications, and generally bad karma.
+一流的程序员与一流的杀手有相同的座右铭:当你完成工作时，总是要清理干净。当您在Python之类的语言中使用ZeroMQ时，会自动释放一些内容。但是在使用C语言时，必须小心地释放对象，否则会导致内存泄漏、应用程序不稳定，通常还会产生坏的因果报应。
 
-Memory leaks are one thing, but ZeroMQ is quite finicky about how you exit an application. The reasons are technical and painful, but the upshot is that if you leave any sockets open, the `zmq_ctx_destroy()` function will hang forever. And even if you close all sockets, `zmq_ctx_destroy()` will by default wait forever if there are pending connects or sends unless you set the LINGER to zero on those sockets before closing them.
+内存泄漏是一回事，但是ZeroMQ对如何退出应用程序非常挑剔。原因是技术性的和痛苦的，但是结果是，如果您打开任何sockets ，zmq_ctx_destroy()函数将永远挂起。即使关闭所有sockets ，默认情况下，如果有挂起连接或发送，zmq_ctx_destroy()将永远等待，除非在关闭这些sockets 之前将这些sockets 的逗留时间设置为零。
 
-The ZeroMQ objects we need to worry about are messages, sockets, and contexts. Luckily it's quite simple, at least in simple programs:
+我们需要担心的ZeroMQ对象是 messages, sockets, 和 contexts。幸运的是，它非常简单，至少在简单的程序中:
 
-- Use `zmq_send()` and `zmq_recv()` when you can, as it avoids the need to work with zmq_msg_t objects.
+- 可以时使用zmq_send()和zmq_recv()，因为它避免了使用zmq_msg_t对象。
 
-- If you do use `zmq_msg_recv()`, always release the received message as soon as you're done with it, by calling `zmq_msg_close()`.
+- 如果您确实使用zmq_msg_recv()，那么总是在使用完接收到的消息后立即释放它，方法是调用zmq_msg_close()。
 
-- If you are opening and closing a lot of sockets, that's probably a sign that you need to redesign your application. In some cases socket handles won't be freed until you destroy the context.
+- 如果您打开和关闭了许多sockets，这可能是您需要重新设计应用程序的标志。在某些情况下，在销毁上下文之前不会释放sockets句柄。
 
-- When you exit the program, close your sockets and then call `zmq_ctx_destroy()`. This destroys the context.
+- 退出程序后，关闭socket，然后调用zmq_ctx_destroy()。这会销毁context。
 
-This is at least the case for C development. In a language with automatic object destruction, sockets and contexts will be destroyed as you leave the scope. If you use exceptions you'll have to do the clean-up in something like a "final" block, the same as for any resource.
+这至少是C开发的情况。在具有自动对象销毁的语言中，离开作用域时将销毁套接字和上下文。
+如果使用异常，则必须在类似“final”块的地方进行清理，这与任何资源都是一样的。
 
-If you're doing multithreaded work, it gets rather more complex than this. We'll get to multithreading in the next chapter, but because some of you will, despite warnings, try to run before you can safely walk, below is the quick and dirty guide to making a clean exit in a *multithreaded* ZeroMQ application.
+如果你在做多线程的工作，它会变得比这更复杂。我们将在下一章中讨论多线程，但是由于有些人会不顾警告，在安全地行走前先尝试运行，下面是在多线程ZeroMQ应用程序中实现干净退出的快速而又脏的指南。
 
-First, do not try to use the same socket from multiple threads. Please don't explain why you think this would be excellent fun, just please don't do it. Next, you need to shut down each socket that has ongoing requests. The proper way is to set a low LINGER value (1 second), and then close the socket. If your language binding doesn't do this for you automatically when you destroy a context, I'd suggest sending a patch.
+首先，不要尝试从多个线程使用同一个socket。请不要解释为什么你认为这将是非常有趣的，只是请不要这样做。接下来，您需要关闭具有正在进行的请求的每个socket。正确的方法是设置一个较低的逗留值(1秒)，然后关闭socket。如果您的语言绑定在销毁context时没有自动为您完成此任务，我建议发送一个补丁。
 
-Finally, destroy the context. This will cause any blocking receives or polls or sends in attached threads (i.e., which share the same context) to return with an error. Catch that error, and then set linger on, and close sockets in *that* thread, and exit. Do not destroy the same context twice. The `zmq_ctx_destroy` in the main thread will block until all sockets it knows about are safely closed.
+最后，销毁context。这将导致任何阻塞接收或轮询或发送附加线程(即,共享context)返回一个错误。捕获该错误，然后设置逗留，关闭该线程中的socket，然后退出。不要两次破坏相同的Context。主线程中的zmq_ctx_destroy将阻塞，直到它所知道的所有socket都安全关闭为止。
 
-Voila! It's complex and painful enough that any language binding author worth his or her salt will do this automatically and make the socket closing dance unnecessary.
-
+瞧!这是非常复杂和痛苦的，任何称职的语言绑定作者都会自动地这样做，使socket关闭舞蹈变得不必要。
 
 
-| [Why We Needed ZeroMQ](http://zguide.zeromq.org/page:all#Why-We-Needed-ZeroMQ) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-18) [next](http://zguide.zeromq.org/page:all#header-20) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
 
+## Why We Needed ZeroMQ
 Now that you've seen ZeroMQ in action, let's go back to the "why".
 
 Many applications these days consist of components that stretch across some kind of network, either a LAN or the Internet. So many application developers end up doing some kind of messaging. Some developers use message queuing products, but most of the time they do it themselves, using TCP or UDP. These protocols are not hard to use, but there is a great difference between sending a few bytes from A to B, and doing messaging in any kind of reliable way.
