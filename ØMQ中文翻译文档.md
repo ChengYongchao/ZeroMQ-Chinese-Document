@@ -467,85 +467,80 @@ ZeroMQ应用程序总是从创建Context开始，然后使用Context创建socket
 
 
 
-## Why We Needed ZeroMQ
-Now that you've seen ZeroMQ in action, let's go back to the "why".
+## 为什么我们需要ZeroMQ
+既然您已经看到了ZeroMQ的作用，让我们回到“为什么”。
 
-Many applications these days consist of components that stretch across some kind of network, either a LAN or the Internet. So many application developers end up doing some kind of messaging. Some developers use message queuing products, but most of the time they do it themselves, using TCP or UDP. These protocols are not hard to use, but there is a great difference between sending a few bytes from A to B, and doing messaging in any kind of reliable way.
+现在的许多应用程序都是由跨越某种网络(LAN或Internet)的组件组成的。因此，许多应用程序开发人员最终都会进行某种消息传递。一些开发人员使用消息队列产品，但大多数时候他们自己使用TCP或UDP来完成。这些协议并不难使用，但是从a向B发送几个字节与以任何一种可靠的方式进行消息传递之间有很大的区别。
 
-Let's look at the typical problems we face when we start to connect pieces using raw TCP. Any reusable messaging layer would need to solve all or most of these:
+让我们看看在开始使用原始TCP连接各个部分时所面临的典型问题。任何可重用的消息层都需要解决所有或大部分问题:
 
-- How do we handle I/O? Does our application block, or do we handle I/O in the background? This is a key design decision. Blocking I/O creates architectures that do not scale well. But background I/O can be very hard to do right.
+- 我们如何处理I/O?我们的应用程序是阻塞还是在后台处理I/O ?这是一个关键的设计决策。阻塞I/O会创建伸缩性不好的体系结构。但是后台I/O很难正确地执行。
+- 我们如何处理动态组件，即，暂时消失的碎片?我们是否将组件正式划分为“客户端”和“服务器”，并要求服务器不能消失?如果我们想把服务器连接到服务器呢?我们是否每隔几秒钟就尝试重新连接?
+- 我们如何在网络上表示消息?我们如何设置数据的框架，使其易于读写，不受缓冲区溢出的影响，对小消息有效，但对于那些戴着派对帽子跳舞的猫的大型视频来说，这已经足够了吗?
+- 我们如何处理无法立即交付的消息?特别是，如果我们正在等待一个组件重新联机?我们是丢弃消息，将它们放入数据库，还是放入内存队列?
+- 我们在哪里存储消息队列?如果从队列读取的组件非常慢，导致我们的队列增加，会发生什么?那么我们的策略是什么呢?
+- 我们如何处理丢失的消息?我们是等待新数据、请求重发，还是构建某种确保消息不会丢失的可靠性层?如果这个层本身崩溃了呢?
+- 如果我们需要使用不同的网络传输怎么办?比如说，多播而不是TCP单播?还是IPv6 ?我们是否需要重写应用程序，还是在某个层中抽象传输?
+- 我们如何路由消息?我们可以向多个对等点发送相同的消息吗?我们可以将回复发送回原始请求者吗?
+- 我们如何为另一种语言编写API ?我们是重新实现一个线级协议，还是重新打包一个库?如果是前者，如何保证栈的高效稳定?如果是后者，我们如何保证互操作性?
+- 我们如何表示数据，以便在不同的体系结构之间读取数据?我们是否对数据类型强制执行特定的编码?这是消息传递系统的工作，而不是更高一层的工作。
+- 我们如何处理网络错误?我们是等待并重试，默不作声地忽略它们，还是中止?
 
-- How do we handle dynamic components, i.e., pieces that go away temporarily? Do we formally split components into "clients" and "servers" and mandate that servers cannot disappear? What then if we want to connect servers to servers? Do we try to reconnect every few seconds?
+以一个典型的开源项目为例，比如Hadoop Zookeeper，在src/ C /src/ Zookeeper . C中读取C API代码。当我在2013年1月读到这段代码时，它是4200行神秘代码，其中有一个未文档化的客户机/服务器网络通信协议。我认为这是有效的，因为它使用轮询而不是选择。但实际上，Zookeeper应该使用通用消息层和显式文档化的有线级协议。对于团队来说，一遍又一遍地构建这个特定的轮子是非常浪费的。
 
-- How do we represent a message on the wire? How do we frame data so it's easy to write and read, safe from buffer overflows, efficient for small messages, yet adequate for the very largest videos of dancing cats wearing party hats?
+但是如何创建可重用的消息层呢?为什么在如此多的项目需要这种技术的时候，人们仍然在用一种很困难的方式来完成它，在他们的代码中驱动TCP套接字，并一次又一次地解决长列表中的问题?
 
-- How do we handle messages that we can't deliver immediately? Particularly, if we're waiting for a component to come back online? Do we discard messages, put them into a database, or into a memory queue?
+事实证明，构建可重用的消息传递系统是非常困难的，这就是为什么很少有自由/开源软件项目尝试过，以及为什么商业消息传递产品是复杂的、昂贵的、不灵活的和脆弱的。2006年，iMatix设计了AMQP，它开始为自由/开源软件开发人员提供消息系统的第一个可重用配方。AMQP比其他许多设计都要好，但仍然相对复杂、昂贵和脆弱。学习使用它需要几周的时间，而创建当事情变得棘手时不会崩溃的稳定的体系结构需要几个月的时间。
 
-- Where do we store message queues? What happens if the component reading from a queue is very slow and causes our queues to build up? What's our strategy then?
-
-- How do we handle lost messages? Do we wait for fresh data, request a resend, or do we build some kind of reliability layer that ensures messages cannot be lost? What if that layer itself crashes?
-
-- What if we need to use a different network transport. Say, multicast instead of TCP unicast? Or IPv6? Do we need to rewrite the applications, or is the transport abstracted in some layer?
-
-- How do we route messages? Can we send the same message to multiple peers? Can we send replies back to an original requester?
-
-- How do we write an API for another language? Do we re-implement a wire-level protocol or do we repackage a library? If the former, how can we guarantee efficient and stable stacks? If the latter, how can we guarantee interoperability?
-
-- How do we represent data so that it can be read between different architectures? Do we enforce a particular encoding for data types? How far is this the job of the messaging system rather than a higher layer?
-
-- How do we handle network errors? Do we wait and retry, ignore them silently, or abort?
-
-Take a typical open source project like [Hadoop Zookeeper](http://hadoop.apache.org/zookeeper/) and read the C API code in `src/c/src/zookeeper.c`. When I read this code, in January 2013, it was 4,200 lines of mystery and in there is an undocumented, client/server network communication protocol. I see it's efficient because it uses `poll` instead of `select`. But really, Zookeeper should be using a generic messaging layer and an explicitly documented wire level protocol. It is incredibly wasteful for teams to be building this particular wheel over and over.
-
-But how to make a reusable messaging layer? Why, when so many projects need this technology, are people still doing it the hard way by driving TCP sockets in their code, and solving the problems in that long list over and over?
-
-It turns out that building reusable messaging systems is really difficult, which is why few FOSS projects ever tried, and why commercial messaging products are complex, expensive, inflexible, and brittle. In 2006, iMatix designed [AMQP](http://www.amqp.org/) which started to give FOSS developers perhaps the first reusable recipe for a messaging system. AMQP works better than many other designs, [but remains relatively complex, expensive, and brittle](http://www.imatix.com/articles:whats-wrong-with-amqp). It takes weeks to learn to use, and months to create stable architectures that don't crash when things get hairy.
-
-**Figure 7 - Messaging as it Starts**
+**图 7 - Messaging as it Starts**
 
 ![fig7.png](https://github.com/imatix/zguide/raw/master/images/fig7.png)
 
-Most messaging projects, like AMQP, that try to solve this long list of problems in a reusable way do so by inventing a new concept, the "broker", that does addressing, routing, and queuing. This results in a client/server protocol or a set of APIs on top of some undocumented protocol that allows applications to speak to this broker. Brokers are an excellent thing in reducing the complexity of large networks. But adding broker-based messaging to a product like Zookeeper would make it worse, not better. It would mean adding an additional big box, and a new single point of failure. A broker rapidly becomes a bottleneck and a new risk to manage. If the software supports it, we can add a second, third, and fourth broker and make some failover scheme. People do this. It creates more moving pieces, more complexity, and more things to break.
+大多数消息传递项目，如AMQP，都试图通过发明一个新的概念“broker”来解决这一长串问题，该概念负责寻址、路由和排队，从而以可重用的方式解决这些问题。这将导致客户机/服务器协议或一些未文档化协议之上的一组api，这些协议允许应用程序与此broker通信。在减少大型网络的复杂性方面，Brokers 是一件很好的事情。但是在Zookeeper这样的产品中添加基于代理的消息会让情况变得更糟，而不是更好。这将意味着添加一个额外的大框和一个新的单点故障。broker 迅速成为一个瓶颈和一个需要管理的新风险。如果软件支持它，我们可以添加第二个、第三个和第四个broker ，并制定一些故障转移方案。人们这样做。它创造了更多的活动部件，更多的复杂性，以及更多需要打破的东西。
 
-And a broker-centric setup needs its own operations team. You literally need to watch the brokers day and night, and beat them with a stick when they start misbehaving. You need boxes, and you need backup boxes, and you need people to manage those boxes. It is only worth doing for large applications with many moving pieces, built by several teams of people over several years.
+以broker 为中心需要自己的operations team。你确实需要日日夜夜地观察这些brokers，当他们开始行为不端时，你要用棍子打他们。你需要盒子，你需要备份盒子，你需要人们来管理这些盒子。它只值得为大型应用程序做很多移动的部分，由几个团队的人在几年的时间内构建。
 
-**Figure 8 - Messaging as it Becomes**
+**图 8 - Messaging as it Becomes**
 
 ![fig8.png](https://github.com/imatix/zguide/raw/master/images/fig8.png)
 
-So small to medium application developers are trapped. Either they avoid network programming and make monolithic applications that do not scale. Or they jump into network programming and make brittle, complex applications that are hard to maintain. Or they bet on a messaging product, and end up with scalable applications that depend on expensive, easily broken technology. There has been no really good choice, which is maybe why messaging is largely stuck in the last century and stirs strong emotions: negative ones for users, gleeful joy for those selling support and licenses.
+因此，中小型应用程序开发人员陷入了困境。它们要么避免网络编程，要么开发不可伸缩的单片应用程序。或者他们跳入网络编程，使脆弱、复杂的应用程序难以维护。或者他们押注于一个消息传递产品，最终开发出可伸缩的应用程序，这些应用程序依赖于昂贵且容易崩溃的技术。一直没有真正好的选择，这也许就是为什么messaging 在很大程度上停留在上个世纪，并激起强烈的情感:对用户来说是负面的，对那些销售支持和许可的人来说是欢欣鼓舞的。
 
-What we need is something that does the job of messaging, but does it in such a simple and cheap way that it can work in any application, with close to zero cost. It should be a library which you just link, without any other dependencies. No additional moving pieces, so no additional risk. It should run on any OS and work with any programming language.
+我们需要的是能够完成消息传递功能的东西，但它的实现方式非常简单和廉价，可以在任何应用程序中运行，成本几乎为零。它应该是一个链接的库，没有任何其他依赖关系。没有额外的移动部件，所以没有额外的风险。它应该运行在任何操作系统上，并且可以使用任何编程语言。
 
-And this is ZeroMQ: an efficient, embeddable library that solves most of the problems an application needs to become nicely elastic across a network, without much cost.
+这就是ZeroMQ:一个高效的、可嵌入的库，它解决了应用程序需要在不花费太多成本的情况下在网络上保持良好弹性的大部分问题。
 
-Specifically:
+ 特别地:
 
-- It handles I/O asynchronously, in background threads. These communicate with application threads using lock-free data structures, so concurrent ZeroMQ applications need no locks, semaphores, or other wait states.
+- 它在后台线程中异步处理I/O。这些线程使用无锁数据结构与应用程序线程通信，因此并发ZeroMQ应用程序不需要锁、信号量或其他等待状态。
 
-- Components can come and go dynamically and ZeroMQ will automatically reconnect. This means you can start components in any order. You can create "service-oriented architectures" (SOAs) where services can join and leave the network at any time.
+- 组件可以动态进出，ZeroMQ将自动重新连接。这意味着您可以以任何顺序启动组件。您可以创建“面向服务的体系结构”(service-oriented architecture, soa)，其中服务可以随时加入和离开网络。
 
-- It queues messages automatically when needed. It does this intelligently, pushing messages as close as possible to the receiver before queuing them.
+- 它在需要时自动对消息进行排队。它很聪明地做到了这一点，在对消息进行排队之前，尽可能地将消息推送到接收端。
 
-- It has ways of dealing with over-full queues (called "high water mark"). When a queue is full, ZeroMQ automatically blocks senders, or throws away messages, depending on the kind of messaging you are doing (the so-called "pattern").
+- 它有办法处理过满的队列(称为“高水位”)。当队列已满时，ZeroMQ会根据您正在执行的消息类型(所谓的“模式”)自动阻塞发送者或丢弃消息。
 
-- It lets your applications talk to each other over arbitrary transports: TCP, multicast, in-process, inter-process. You don't need to change your code to use a different transport.
+- 它允许您的应用程序通过任意传输相互通信:TCP、多播、进程内、进程间。您不需要更改代码来使用不同的传输。
 
-- It handles slow/blocked readers safely, using different strategies that depend on the messaging pattern.
+- 它使用依赖于消息传递模式的不同策略安全地处理慢速/阻塞的readers 。
 
-- It lets you route messages using a variety of patterns such as request-reply and pub-sub. These patterns are how you create the topology, the structure of your network.
+- 它允许您使用各种模式路由消息，比如请求-应答和发布-订阅。这些模式是取决于你如何创建拓扑结构的，即网络的结构。
 
-- It lets you create proxies to queue, forward, or capture messages with a single call. Proxies can reduce the interconnection complexity of a network.
+它允许您创建代理来通过一个调用对消息进行排队、转发或捕获。
+代理可以降低网络的互连复杂性。
 
-- It delivers whole messages exactly as they were sent, using a simple framing on the wire. If you write a 10k message, you will receive a 10k message.
+它通过在网络上使用一个简单的框架，完全按照发送的方式传递整个消息。
+如果您写了一条10k的消息，您将收到一条10k的消息。
 
-- It does not impose any format on messages. They are blobs from zero to gigabytes large. When you want to represent data you choose some other product on top, such as msgpack, Google's protocol buffers, and others.
+它不将任何格式强加于消息。
+它们是从0到gb大小的水滴。
+当您想要表示数据时，您可以在顶部选择一些其他产品，例如msgpack、谷歌的协议缓冲区等。
 
-- It handles network errors intelligently, by retrying automatically in cases where it makes sense.
+它通过在有意义的情况下自动重试来智能地处理网络错误。
 
-- It reduces your carbon footprint. Doing more with less CPU means your boxes use less power, and you can keep your old boxes in use for longer. Al Gore would love ZeroMQ.
-
+它可以减少你的碳足迹。
+用更少的CPU做更多的事情意味着您的机器使用更少的能量，并且您可以让旧的机器使用更长时间。
+戈尔会喜欢ZeroMQ的。
 Actually ZeroMQ does rather more than this. It has a subversive effect on how you develop network-capable applications. Superficially, it's a socket-inspired API on which you do `zmq_recv()` and `zmq_send()`. But message processing rapidly becomes the central loop, and your application soon breaks down into a set of message processing tasks. It is elegant and natural. And it scales: each of these tasks maps to a node, and the nodes talk to each other across arbitrary transports. Two nodes in one process (node is a thread), two nodes on one box (node is a process), or two nodes on one network (node is a box)—it's all the same, with no application code changes.
 
 
