@@ -526,30 +526,22 @@ ZeroMQ应用程序总是从创建Context开始，然后使用Context创建socket
 
 - 它允许您使用各种模式路由消息，比如请求-应答和发布-订阅。这些模式是取决于你如何创建拓扑结构的，即网络的结构。
 
-它允许您创建代理来通过一个调用对消息进行排队、转发或捕获。
-代理可以降低网络的互连复杂性。
+- 它允许您创建代理来通过一个调用对消息进行排队、转发或捕获。代理可以降低网络的互连复杂性。
 
-它通过在网络上使用一个简单的框架，完全按照发送的方式传递整个消息。
-如果您写了一条10k的消息，您将收到一条10k的消息。
+- 它通过在网络上使用一个简单的框架，完全按照发送的方式传递整个消息。如果您写了一条10k的消息，您将收到一条10k的消息。
 
-它不将任何格式强加于消息。
-它们是从0到gb大小的水滴。
-当您想要表示数据时，您可以在顶部选择一些其他产品，例如msgpack、谷歌的协议缓冲区等。
+- 它不将任何格式强加于消息。它们是从0到gb大小的水滴。当您想要表示数据时，您可以在顶部选择一些其他产品，例如msgpack、谷歌的协议缓冲区等。
 
-它通过在有意义的情况下自动重试来智能地处理网络错误。
+- 它通过在有意义的情况下自动重试来智能地处理网络错误。
 
-它可以减少你的碳足迹。
-用更少的CPU做更多的事情意味着您的机器使用更少的能量，并且您可以让旧的机器使用更长时间。
-戈尔会喜欢ZeroMQ的。
-Actually ZeroMQ does rather more than this. It has a subversive effect on how you develop network-capable applications. Superficially, it's a socket-inspired API on which you do `zmq_recv()` and `zmq_send()`. But message processing rapidly becomes the central loop, and your application soon breaks down into a set of message processing tasks. It is elegant and natural. And it scales: each of these tasks maps to a node, and the nodes talk to each other across arbitrary transports. Two nodes in one process (node is a thread), two nodes on one box (node is a process), or two nodes on one network (node is a box)—it's all the same, with no application code changes.
+- 它可以减少你的碳足迹。用更少的CPU做更多的事情意味着您的机器使用更少的能量，并且您可以让旧的机器使用更长时间。 Al Gore会喜欢ZeroMQ的。
+- 实际上ZeroMQ做的远不止这些。
+它对如何开发支持网络的应用程序具有颠覆性的影响。从表面上看，它是一个受套接字启发的API，您可以在其上执行' zmq_recv() '和' zmq_send() '。但是消息处理很快成为中心循环，您的应用程序很快就分解为一组消息处理任务。它优雅自然。它是可伸缩的:每个任务都映射到一个节点，节点之间通过任意传输进行通信。一个进程中的两个节点(节点是一个线程)、一个框中的两个节点(节点是一个进程)或一个网络上的两个节点(节点是一个框)—都是一样的，没有应用程序代码更改。
 
 
-
-| [Socket Scalability](http://zguide.zeromq.org/page:all#Socket-Scalability) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-19) [next](http://zguide.zeromq.org/page:all#header-21) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-Let's see ZeroMQ's scalability in action. Here is a shell script that starts the weather server and then a bunch of clients in parallel:
+（可伸缩性的scoket）
+## Socket Scalability（可伸缩性的scoket）
+让我们看看ZeroMQ的可伸缩性。下面是一个shell脚本，它先启动天气服务器，然后并行地启动一堆客户机:
 
 ```
 wuserver &
@@ -572,56 +564,44 @@ PID  USER  PR  NI  VIRT  RES  SHR S %CPU %MEM   TIME+  COMMAND
 7967  ph   20   0 33072 1740 1372 S    5  0.0  0:00.35 wuclient
 ```
 
-Let's think for a second about what is happening here. The weather server has a single socket, and yet here we have it sending data to five clients in parallel. We could have thousands of concurrent clients. The server application doesn't see them, doesn't talk to them directly. So the ZeroMQ socket is acting like a little server, silently accepting client requests and shoving data out to them as fast as the network can handle it. And it's a multithreaded server, squeezing more juice out of your CPU.
+让我们想一下这里发生了什么。气象服务器只有一个套接字，但是这里我们让它并行地向五个客户机发送数据。我们可以有成千上万的并发客户端。服务器应用程序不会看到它们，也不会直接与它们对话。所以ZeroMQ套接字就像一台小服务器，默默地接受客户机请求，并以网络最快的速度将数据发送给它们。它是一个多线程服务器，可以从CPU中挤出更多的能量。
 
 
 
-| [Upgrading from ZeroMQ v2.2 to ZeroMQ v3.2](http://zguide.zeromq.org/page:all#Upgrading-from-ZeroMQ-v-to-ZeroMQ-v) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-20) [next](http://zguide.zeromq.org/page:all#header-22) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 从ZeroMQ v2.2升级到ZeroMQ v3.2
 
+## Compatible Changes(兼容变更)
 
+这些更改不会直接影响现有的应用程序代码:
 
-| [Compatible Changes](http://zguide.zeromq.org/page:all#Compatible-Changes) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-21) [next](http://zguide.zeromq.org/page:all#header-23) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-These changes don't impact existing application code directly:
-
-- Pub-sub filtering is now done at the publisher side instead of subscriber side. This improves performance significantly in many pub-sub use cases. You can mix v3.2 and v2.1/v2.2 publishers and subscribers safely.
+- Pub-sub filtering现在运行在在publisher而不是在subscriber，这在许多pub-sub 用例中显著提高了性能 You can mix v3.2 and v2.1/v2.2 publishers and subscribers safely.
 
 - ZeroMQ v3.2 has many new API methods (`zmq_disconnect()`, `zmq_unbind()`, `zmq_monitor()`, `zmq_ctx_set()`, etc.)
 
 
 
-| [Incompatible Changes](http://zguide.zeromq.org/page:all#Incompatible-Changes) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-22) [next](http://zguide.zeromq.org/page:all#header-24) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-These are the main areas of impact on applications and language bindings:
+## 不兼容的变更
+这些是影响应用程序和语言绑定的主要领域:（These are the main areas of impact on applications and language bindings）:
 
 - Changed send/recv methods: `zmq_send()` and `zmq_recv()` have a different, simpler interface, and the old functionality is now provided by `zmq_msg_send()` and `zmq_msg_recv()`. Symptom: compile errors. Solution: fix up your code.
 
-- These two methods return positive values on success, and -1 on error. In v2.x they always returned zero on success. Symptom: apparent errors when things actually work fine. Solution: test strictly for return code = -1, not non-zero.
+- 这两种方法成功时返回正值，错误时返回-1。在v2。他们成功时总是零回报。症状:工作正常时明显的错误。解决方案:严格测试返回代码= -1，而不是非零.
 
-- `zmq_poll()` now waits for milliseconds, not microseconds. Symptom: application stops responding (in fact responds 1000 times slower). Solution: use the `ZMQ_POLL_MSEC`macro defined below, in all `zmq_poll` calls.
+- `zmq_poll()` 现在等待毫秒，而不是微秒。症状:应用程序停止响应(实际上响应慢了1000倍)。解决方案：:在所有zmq_poll调用中，使用下面定义的ZMQ_POLL_MSEC宏。
 
-- `ZMQ_NOBLOCK` is now called `ZMQ_DONTWAIT`. Symptom: compile failures on the `ZMQ_NOBLOCK` macro.
+- “ZMQ_NOBLOCK”现在称为“ZMQ_DONTWAIT”。症状:在“ZMQ NOBLOCK”宏上编译失败。
 
-- The `ZMQ_HWM` socket option is now broken into `ZMQ_SNDHWM` and `ZMQ_RCVHWM`. Symptom: compile failures on the `ZMQ_HWM` macro.
+- “ZMQ_HWM”socket 选项现在分为“ZMQ_SNDHWM”和“ZMQ_RCVHWM”。症状:在' ZMQ_HWM '宏上编译失败。
 
-- Most but not all `zmq_getsockopt()` options are now integer values. Symptom: runtime error returns on `zmq_setsockopt` and `zmq_getsockopt`.
+- 大多数但不是所有的' zmq_getsockopt() '选项现在都是整数值。症状:运行时错误返回' zmq_setsockopt '和' zmq_getsockopt '。
 
-- The `ZMQ_SWAP` option has been removed. Symptom: compile failures on `ZMQ_SWAP`. Solution: redesign any code that uses this functionality.
+- ' ZMQ_SWAP '选项已被删除。症状:在' ZMQ_SWAP '上编译失败。解决方案:重新设计使用此功能的任何代码。
 
 
 
-| [Suggested Shim Macros](http://zguide.zeromq.org/page:all#Suggested-Shim-Macros) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-23) [next](http://zguide.zeromq.org/page:all#header-25) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-For applications that want to run on both v2.x and v3.2, such as language bindings, our advice is to emulate v3.2 as far as possible. Here are C macro definitions that help your C/C++ code to work across both versions (taken from [CZMQ](http://czmq.zeromq.org/)):
-
+## Suggested Shim Macros
+对于希望在两个v2上运行的应用程序。x和v3.2，例如语言绑定，我们的建议是尽可能地模拟v3.2。这里有一些C宏定义，可以帮助您的C/ c++代码跨两个版本工作(取自[CZMQ](http://czmq.zeromq.org/)):
+```
 \#ifndef ZMQ_DONTWAIT
 \#`   `define ZMQ_DONTWAIT`     `ZMQ_NOBLOCK
 \#endif
@@ -635,323 +615,260 @@ For applications that want to run on both v2.x and v3.2, such as language bindin
 \#elif ZMQ_VERSION_MAJOR == 3
 \#`   `define ZMQ_POLL_MSEC`    `1`           `*//  zmq_poll is msec*
 \#endif
+```
+
+
+## Warning: 不稳定的范例!
+传统的网络编程建立在一个socket 与一个connection、一个peer通信的一般假设之上。有多播协议，但这些都是外来的。当我们假设“"one socket = one connection"”时，我们以某种方式扩展架构。我们创建逻辑线程，其中每个线程使用一个socket和一个peer。我们在这些线程中放置intelligence 和状态。
+在ZeroMQ领域，sockets是快速后台通信引擎的入口，这些引擎可以自动地为您管理一整套连接。您无法查看、处理、打开、关闭或将状态附加到这些连接。无论您使用阻塞发送、接收或轮询，您只能与socket通信，而不是它为您管理的连接。连接是私有的，不可见的，这是ZeroMQ可伸缩性的关键。
+这是因为，与socket通信的代码可以处理任意数量的连接，而无需更改周围的任何网络协议。ZeroMQ中的消息传递模式比应用程序代码中的消息传递模式扩展得更便宜。
+
+所以一般的假设不再适用。当您阅读代码示例时，您的大脑将尝试将它们映射到您所知道的内容。您将读取“socket”并认为“啊，这表示到另一个节点的连接”。这是错误的。当你读到“thread”时，你的大脑又会想，“啊，一个thread代表了与另一个节点的连接”，你的大脑又会出错。
+如果你是第一次读这本指南的话,要意识到这一点，直到你在一两天内编写ZeroMQ代码(可能是三到四天),你可能会感到困惑,特别是ZeroMQ使事情多么简单,你可以试着把这个普遍的假设强加给ZeroMQ,它不会工作。然后你将经历你的启蒙和信任的时刻，当一切都变得清晰的时候，你将经历“zap-pow-kaboom satori”的时刻。
 
 
 
-| [Warning: Unstable Paradigms!](http://zguide.zeromq.org/page:all#Warning-Unstable-Paradigms) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-24) [next](http://zguide.zeromq.org/page:all#header-26) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+# Chapter 2 - Sockets and Patterns
 
-Traditional network programming is built on the general assumption that one socket talks to one connection, one peer. There are multicast protocols, but these are exotic. When we assume "one socket = one connection", we scale our architectures in certain ways. We create threads of logic where each thread work with one socket, one peer. We place intelligence and state in these threads.
+在第1章—基础知识中，我们将ZeroMQ作为驱动器，并提供了一些主要ZeroMQ模式的基本示例:请求-应答、发布-订阅和管道。在本章中，我们将亲自动手，开始学习如何在实际程序中使用这些工具。
 
-In the ZeroMQ universe, sockets are doorways to fast little background communications engines that manage a whole set of connections automagically for you. You can't see, work with, open, close, or attach state to these connections. Whether you use blocking send or receive, or poll, all you can talk to is the socket, not the connections it manages for you. The connections are private and invisible, and this is the key to ZeroMQ's scalability.
+我们将讨论:
 
-This is because your code, talking to a socket, can then handle any number of connections across whatever network protocols are around, without change. A messaging pattern sitting in ZeroMQ scales more cheaply than a messaging pattern sitting in your application code.
-
-So the general assumption no longer applies. As you read the code examples, your brain will try to map them to what you know. You will read "socket" and think "ah, that represents a connection to another node". That is wrong. You will read "thread" and your brain will again think, "ah, a thread represents a connection to another node", and again your brain will be wrong.
-
-If you're reading this Guide for the first time, realize that until you actually write ZeroMQ code for a day or two (and maybe three or four days), you may feel confused, especially by how simple ZeroMQ makes things for you, and you may try to impose that general assumption on ZeroMQ, and it won't work. And then you will experience your moment of enlightenment and trust, that *zap-pow-kaboom* satori paradigm-shift moment when it all becomes clear.
-
-
-
-| [Chapter 2 - Sockets and Patterns](http://zguide.zeromq.org/page:all#Chapter-Sockets-and-Patterns) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-25) [next](http://zguide.zeromq.org/page:all#header-27) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-In [Chapter 1 - Basics](http://zguide.zeromq.org/page:all#basics) we took ZeroMQ for a drive, with some basic examples of the main ZeroMQ patterns: request-reply, pub-sub, and pipeline. In this chapter, we're going to get our hands dirty and start to learn how to use these tools in real programs.
-
-We'll cover:
-
-- How to create and work with ZeroMQ sockets.
-- How to send and receive messages on sockets.
-- How to build your apps around ZeroMQ's asynchronous I/O model.
-- How to handle multiple sockets in one thread.
-- How to handle fatal and nonfatal errors properly.
-- How to handle interrupt signals like Ctrl-C.
-- How to shut down a ZeroMQ application cleanly.
-- How to check a ZeroMQ application for memory leaks.
-- How to send and receive multipart messages.
-- How to forward messages across networks.
-- How to build a simple message queuing broker.
-- How to write multithreaded applications with ZeroMQ.
-- How to use ZeroMQ to signal between threads.
-- How to use ZeroMQ to coordinate a network of nodes.
-- How to create and use message envelopes for pub-sub.
-- Using the HWM (high-water mark) to protect against memory overflows.
+- 如何创建和使用ZeroMQ Sockets。
+- 如何在Sockets上发送和接收消息。
+如何围绕ZeroMQ的异步I/O模型构建应用程序。
+如何在一个线程中处理多个Sockets。
+如何正确处理致命和非致命错误。
+如何处理像Ctrl-C这样的中断信号。
+如何干净地关闭ZeroMQ应用程序。
+如何检查ZeroMQ应用程序的内存泄漏。
+如何发送和接收多部分消息。
+如何跨网络转发消息。
+如何构建一个简单的消息队列代理（broker）。
+如何使用ZeroMQ编写多线程应用程序。
+如何使用ZeroMQ在线程之间发送信号。
+如何使用ZeroMQ来协调节点网络。
+如何为发布-订阅创建和使用消息信封。
+使用HWM (high-water mark)来防止内存溢出。
 
 
 
-| [The Socket API](http://zguide.zeromq.org/page:all#The-Socket-API) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-26) [next](http://zguide.zeromq.org/page:all#header-28) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## The Socket API
+说句老实话，ZeroMQ对你耍了个花招，对此我们不道歉。这是为了你好，我们比你更伤心。ZeroMQ提供了一个熟悉的基于Socket的API，要隐藏一堆消息处理引擎需要付出很大的努力。然而，结果将慢慢地修正您关于如何设计和编写分布式软件的世界观。
 
-To be perfectly honest, ZeroMQ does a kind of switch-and-bait on you, for which we don't apologize. It's for your own good and it hurts us more than it hurts you. ZeroMQ presents a familiar socket-based API, which requires great effort for us to hide a bunch of message-processing engines. However, the result will slowly fix your world view about how to design and write distributed software.
+Socket实际上是网络编程的标准API， as well as being useful for stopping your eyes from falling onto your cheeks（怎么翻译？ 大跌眼镜?）。ZeroMQ对开发人员特别有吸引力的一点是，它使用Socket和messages ，而不是其他任意一组概念。感谢Martin Sustrik的成功。它将“面向消息的中间件”变成了“额外辛辣(Extra Spicy ，升级版)的Sockets!”这让我们对披萨产生了一种奇怪的渴望，并渴望了解更多。
+就像最喜欢的菜一样，ZeroMQsockets 很容易消化。sockets 的生命由四个部分组成，就像BSDsockets 一样：
 
-Sockets are the de facto standard API for network programming, as well as being useful for stopping your eyes from falling onto your cheeks. One thing that makes ZeroMQ especially tasty to developers is that it uses sockets and messages instead of some other arbitrary set of concepts. Kudos to Martin Sustrik for pulling this off. It turns "Message Oriented Middleware", a phrase guaranteed to send the whole room off to Catatonia, into "Extra Spicy Sockets!", which leaves us with a strange craving for pizza and a desire to know more.
+- 创造和摧毁sockets ，它们一起形成一个插座生命的业力循环(see `zmq_socket()`, `zmq_close()`).
 
-Like a favorite dish, ZeroMQ sockets are easy to digest. Sockets have a life in four parts, just like BSD sockets:
-
-- Creating and destroying sockets, which go together to form a karmic circle of socket life (see `zmq_socket()`, `zmq_close()`).
-
-- Configuring sockets by setting options on them and checking them if necessary (see `zmq_setsockopt()`, `zmq_getsockopt()`).
+- 通过设置套接字上的选项并在必要时检查它们来配置套接字(see `zmq_setsockopt()`, `zmq_getsockopt()`).
 
 - Plugging sockets into the network topology by creating ZeroMQ connections to and from them (see `zmq_bind()`, `zmq_connect()`).
 
-- Using the sockets to carry data by writing and receiving messages on them (see `zmq_msg_send()`, `zmq_msg_recv()`).
+- 通过创建与它们之间的ZeroMQ连接，将sockets插入网络拓扑(see `zmq_msg_send()`, `zmq_msg_recv()`).
 
-Note that sockets are always void pointers, and messages (which we'll come to very soon) are structures. So in C you pass sockets as-such, but you pass addresses of messages in all functions that work with messages, like `zmq_msg_send()` and `zmq_msg_recv()`. As a mnemonic, realize that "in ZeroMQ, all your sockets are belong to us", but messages are things you actually own in your code.
-
-Creating, destroying, and configuring sockets works as you'd expect for any object. But remember that ZeroMQ is an asynchronous, elastic fabric. This has some impact on how we plug sockets into the network topology and how we use the sockets after that.
-
+注意，套接字总是空指针，消息(我们很快就会讲到)是结构。所以在C语言中，按原样传递sockets ，但是在所有处理消息的函数中传递消息的地址，比如zmq_msg_send()和zmq_msg_recv()。作为一个助记符，请认识到“在ZeroMQ中，您所有的sockets 都属于我们”，但是消息实际上是您在代码中拥有的东西。
+创建、销毁和配置Sockets的工作原理与您对任何对象的期望一样。但是请记住ZeroMQ是一个异步的、有弹性的结构。这对我们如何将Sockets插入网络拓扑以及之后如何使用Sockets有一定的影响。
 
 
-| [Plugging Sockets into the Topology](http://zguide.zeromq.org/page:all#Plugging-Sockets-into-the-Topology) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-27) [next](http://zguide.zeromq.org/page:all#header-29) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
 
-To create a connection between two nodes, you use `zmq_bind()` in one node and `zmq_connect()` in the other. As a general rule of thumb, the node that does `zmq_bind()` is a "server", sitting on a well-known network address, and the node which does `zmq_connect()`is a "client", with unknown or arbitrary network addresses. Thus we say that we "bind a socket to an endpoint" and "connect a socket to an endpoint", the endpoint being that well-known network address.
+## 将Sockets插入拓扑中
 
-ZeroMQ connections are somewhat different from classic TCP connections. The main notable differences are:
+要在两个节点之间创建连接，可以在一个节点中使用zmq_bind()，在另一个节点中使用zmq_connect()。一般来说，执行zmq_bind()的节点是一个“服务器”，位于一个已知的网络地址上，执行zmq_connect()的节点是一个“客户机”，具有未知或任意的网络地址。因此，我们说“将socket 绑定到端点”和“将socket 连接到端点”，端点就是那个已知的网络地址。
+
+ZeroMQ连接与传统TCP连接有些不同。主要的显著差异是:
 
 - They go across an arbitrary transport (`inproc`, `ipc`, `tcp`, `pgm`, or `epgm`). See `zmq_inproc()`, `zmq_ipc()`, `zmq_tcp()`, `zmq_pgm()`, and `zmq_epgm()`.
 
-- One socket may have many outgoing and many incoming connections.
+- 一个将socket可能有许多传出和传入连接。.
 
-- There is no `zmq_accept`() method. When a socket is bound to an endpoint it automatically starts accepting connections.
+- 没有' zmq_accept '()方法。当socket绑定到端点时，它将自动开始接受连接
 
-- The network connection itself happens in the background, and ZeroMQ will automatically reconnect if the network connection is broken (e.g., if the peer disappears and then comes back).
+- 网络连接本身发生在后台，如果网络连接中断，ZeroMQ将自动重新连接(例如，如果peer 消失，然后返回)。
 
-- Your application code cannot work with these connections directly; they are encapsulated under the socket.
+- 您的应用程序代码不能直接使用这些连接;它们被封装在socket下面。
 
-Many architectures follow some kind of client/server model, where the server is the component that is most static, and the clients are the components that are most dynamic, i.e., they come and go the most. There are sometimes issues of addressing: servers will be visible to clients, but not necessarily vice versa. So mostly it's obvious which node should be doing `zmq_bind()` (the server) and which should be doing `zmq_connect()` (the client). It also depends on the kind of sockets you're using, with some exceptions for unusual network architectures. We'll look at socket types later.
+许多架构遵循某种客户机/服务器模型，其中服务器是最静态的组件，而客户机是最动态的组件，即，他们来了又走的最多。有时存在寻址问题:服务器对客户机可见，但是反过来不一定是这样的。因此，很明显，哪个节点应该执行zmq_bind()(服务器)，而哪个节点应该执行zmq_connect()(客户机)。它还取决于您使用的socket的类型，对于不常见的网络体系结构有一些例外。稍后我们将研究socket类型。
 
-Now, imagine we start the client *before* we start the server. In traditional networking, we get a big red Fail flag. But ZeroMQ lets us start and stop pieces arbitrarily. As soon as the client node does `zmq_connect()`, the connection exists and that node can start to write messages to the socket. At some stage (hopefully before messages queue up so much that they start to get discarded, or the client blocks), the server comes alive, does a `zmq_bind()`, and ZeroMQ starts to deliver messages.
-
-A server node can bind to many endpoints (that is, a combination of protocol and address) and it can do this using a single socket. This means it will accept connections across different transports:
-
+现在，假设在启动服务器之前先启动客户机。在传统的网络中，我们会看到一个大大的红色失败标志。但是ZeroMQ让我们任意地开始和停止。只要客户机节点执行zmq_connect()，连接就存在，该节点就可以开始向socket写入消息。在某个阶段(希望是在消息排队太多而开始被丢弃或客户机阻塞之前)，服务器会启动，执行zmq_bind()，然后ZeroMQ开始传递消息。
+一个服务器节点可以绑定到许多端点(即协议和地址的组合)，并且它可以使用一个socket来实现这一点。这意味着它将接受跨不同传输的连接：
+```
 zmq_bind (socket, "tcp://*:5555");
 zmq_bind (socket, "tcp://*:9999");
 zmq_bind (socket, "inproc://somename");
+```
+对于大多数传输，不能像UDP那样两次绑定到同一个端点。然而，ipc传输允许一个进程绑定到第一个进程已经使用的端点。这意味着允许进程在崩溃后恢复。
+虽然ZeroMQ试图对哪边绑定和哪边连接保持中立，但还是有区别的。稍后我们将更详细地看到这些。其结果是，您通常应该将“服务器”视为拓扑的静态部分，它绑定到或多或少固定的端点，而将“客户机”视为动态部分，它们来来去去并连接到这些端点。然后，围绕这个模型设计应用程序。它“正常工作”的可能性要大得多。
 
-With most transports, you cannot bind to the same endpoint twice, unlike for example in UDP. The `ipc` transport does, however, let one process bind to an endpoint already used by a first process. It's meant to allow a process to recover after a crash.
-
-Although ZeroMQ tries to be neutral about which side binds and which side connects, there are differences. We'll see these in more detail later. The upshot is that you should usually think in terms of "servers" as static parts of your topology that bind to more or less fixed endpoints, and "clients" as dynamic parts that come and go and connect to these endpoints. Then, design your application around this model. The chances that it will "just work" are much better like that.
-
-Sockets have types. The socket type defines the semantics of the socket, its policies for routing messages inwards and outwards, queuing, etc. You can connect certain types of socket together, e.g., a publisher socket and a subscriber socket. Sockets work together in "messaging patterns". We'll look at this in more detail later.
-
-It's the ability to connect sockets in these different ways that gives ZeroMQ its basic power as a message queuing system. There are layers on top of this, such as proxies, which we'll get to later. But essentially, with ZeroMQ you define your network architecture by plugging pieces together like a child's construction toy.
+Sockets 有多个类型。Socket类型定义Sockets的语义、Socket向内和向外路由消息的策略、队列等。您可以将某些类型的Socket连接在一起，例如，publisher Socket和subscriber Socket。Socket在“messaging patterns”中协同工作。稍后我们将更详细地讨论这个问题。
+正是能够以这些不同的方式连接Sockets，使ZeroMQ具备了作为消息队列系统的基本功能。在此之上还有一些层，比如代理，我们稍后将讨论它。但从本质上讲，使用ZeroMQ，您可以像孩子的积木玩具一样将各个部分拼接在一起，从而定义您的网络体系结构。
 
 
 
-| [Sending and Receiving Messages](http://zguide.zeromq.org/page:all#Sending-and-Receiving-Messages) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-28) [next](http://zguide.zeromq.org/page:all#header-30) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-To send and receive messages you use the `zmq_msg_send()` and `zmq_msg_recv()` methods. The names are conventional, but ZeroMQ's I/O model is different enough from the classic TCP model that you will need time to get your head around it.
-
-**Figure 9 - TCP sockets are 1 to 1**
+## 发送和接收消息
+要发送和接收消息，可以使用zmq_msg_send()和zmq_msg_recv()方法。这些名称都是传统的，但是ZeroMQ的I/O模型与传统的TCP模型有很大的不同，您需要时间来理解它。
+### 图 9 - TCP sockets are 1 to 1
 
 ![fig9.png](https://github.com/imatix/zguide/raw/master/images/fig9.png)
 
-Let's look at the main differences between TCP sockets and ZeroMQ sockets when it comes to working with data:
+让我们来看看TCP sockets和ZeroMQ sockets在处理数据方面的主要区别:
 
-- ZeroMQ sockets carry messages, like UDP, rather than a stream of bytes as TCP does. A ZeroMQ message is length-specified binary data. We'll come to messages shortly; their design is optimized for performance and so a little tricky.
+- ZeroMQ套接字像UDP一样携带消息，而不像TCP那样携带字节流。ZeroMQ消息是长度指定的二进制数据。我们很快就会讲到信息;它们的设计是针对性能进行优化的，因此有点棘手。
+- ZeroMQ套接字在后台线程中执行I/O。这意味着消息到达本地输入队列并从本地输出队列发送，无论您的应用程序在忙什么。
+- 根据socket类型，ZeroMQ sockets具有内置的1对n路由行为。
 
-- ZeroMQ sockets do their I/O in a background thread. This means that messages arrive in local input queues and are sent from local output queues, no matter what your application is busy doing.
-
-- ZeroMQ sockets have one-to-N routing behavior built-in, according to the socket type.
-
-The `zmq_send()` method does not actually send the message to the socket connection(s). It queues the message so that the I/O thread can send it asynchronously. It does not block except in some exception cases. So the message is not necessarily sent when `zmq_send()`returns to your application.
+zmq_send()方法实际上并不将消息发送到socket connection(s)。它对消息进行排队，以便I/O线程可以异步发送消息。它不会阻塞，除非在某些异常情况下。因此，当zmq_send()返回到应用程序时，不一定要发送消息。
 
 
 
-| [Unicast Transports](http://zguide.zeromq.org/page:all#Unicast-Transports) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-29) [next](http://zguide.zeromq.org/page:all#header-31) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 单播传输（Unicast Transports）
 
-ZeroMQ provides a set of unicast transports (`inproc`, `ipc`, and `tcp`) and multicast transports (epgm, pgm). Multicast is an advanced technique that we'll come to later. Don't even start using it unless you know that your fan-out ratios will make 1-to-N unicast impossible.
+ZeroMQ提供了一组单播传输(inproc、ipc和tcp)和多播传输(epgm、pgm)。多播是一种先进的技术，我们稍后会讲到。不要开始使用它，除非你知道你的扇出比将使1到n单播不可能（Don't even start using it unless you know that your fan-out ratios will make 1-to-N unicast impossible.）。
 
-For most common cases, use **tcp**, which is a *disconnected TCP* transport. It is elastic, portable, and fast enough for most cases. We call this disconnected because ZeroMQ's `tcp`transport doesn't require that the endpoint exists before you connect to it. Clients and servers can connect and bind at any time, can go and come back, and it remains transparent to applications.
+对于大多数常见的情况，使用tcp，这是一个断开连接式（disconnected ）的tcp传输。它是弹性的，便携式的，和足够快的大多数情况下。我们将此称为断开连接式（disconnected ），因为ZeroMQ的tcp传输不需要在连接到端点之前存在端点。客户机和服务器可以随时连接和绑定，可以来回切换，并且对应用程序保持透明。
 
-The inter-process `ipc` transport is disconnected, like `tcp`. It has one limitation: it does not yet work on Windows. By convention we use endpoint names with an ".ipc" extension to avoid potential conflict with other file names. On UNIX systems, if you use `ipc` endpoints you need to create these with appropriate permissions otherwise they may not be shareable between processes running under different user IDs. You must also make sure all processes can access the files, e.g., by running in the same working directory.
+进程间ipc传输也是断开连接式（disconnected ）的，就像tcp一样。它有一个限制:它还不能在Windows上运行。按照惯例，我们使用带有“.ipc”扩展名，以避免与其他文件名的潜在冲突。在UNIX系统上，如果使用ipc端点，则需要使用适当的权限创建这些端点，否则在不同用户id下运行的进程之间可能无法共享这些端点。您还必须确保所有进程都可以访问这些文件，例如，在相同的工作目录中运行。
 
-The inter-thread transport, **inproc**, is a connected signaling transport. It is much faster than `tcp` or `ipc`. This transport has a specific limitation compared to `tcp` and `ipc`: **the server must issue a bind before any client issues a connect**. This is something future versions of ZeroMQ may fix, but at present this defines how you use `inproc` sockets. We create and bind one socket and start the child threads, which create and connect the other sockets.
+线程间传输(inproc)是一种连接（connected ）的信号传输。它比tcp或ipc快得多。与tcp和ipc相比，这种传输有一个特定的限制:**服务器必须在任何客户机发出连接之前发出绑定**。这是ZeroMQ的未来版本可能会解决的问题，但目前这定义了如何使用inproc套接字。我们创建并绑定一个socket，并启动子线程，子线程创建并连接其他socket。
 
 
 
-| [ZeroMQ is Not a Neutral Carrier](http://zguide.zeromq.org/page:all#ZeroMQ-is-Not-a-Neutral-Carrier) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-30) [next](http://zguide.zeromq.org/page:all#header-32) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## ZeroMQ 不是中立的载体（Neutral Carrier）
 
-A common question that newcomers to ZeroMQ ask (it's one I've asked myself) is, "how do I write an XYZ server in ZeroMQ?" For example, "how do I write an HTTP server in ZeroMQ?" The implication is that if we use normal sockets to carry HTTP requests and responses, we should be able to use ZeroMQ sockets to do the same, only much faster and better.
+ZeroMQ新手常问的一个问题(我自己也问过这个问题)是:“如何用ZeroMQ编写XYZ服务器?”
+例如，“如何用ZeroMQ编写HTTP服务器?”这意味着，如果我们使用普通sockets 来承载HTTP请求和响应，我们应该能够使用ZeroMQsockets 来做同样的事情，只是更快更好。
 
-The answer used to be "this is not how it works". ZeroMQ is not a neutral carrier: it imposes a framing on the transport protocols it uses. This framing is not compatible with existing protocols, which tend to use their own framing. For example, compare an HTTP request and a ZeroMQ request, both over TCP/IP.
+答案曾经是“事情不是这样的”。ZeroMQ并不是一个中立的载体:它在使用的传输协议上强加了一个框架。这种帧与现有协议不兼容，现有协议倾向于使用自己的帧。例如，比较TCP/IP上的HTTP请求和ZeroMQ请求。
 
-**Figure 10 - HTTP on the Wire**
+**图 10 - HTTP on the Wire**
 
 ![fig10.png](https://github.com/imatix/zguide/raw/master/images/fig10.png)
 
-The HTTP request uses CR-LF as its simplest framing delimiter, whereas ZeroMQ uses a length-specified frame. So you could write an HTTP-like protocol using ZeroMQ, using for example the request-reply socket pattern. But it would not be HTTP.
+HTTP请求使用CR-LF作为最简单的帧分隔符，而ZeroMQ使用指定长度的帧。因此，您可以使用ZeroMQ编写类似http的协议，例如使用request-reply socket模式。但它不是HTTP。
 
-**Figure 11 - ZeroMQ on the Wire**
+**图 11 - ZeroMQ on the Wire**
 
 ![fig11.png](https://github.com/imatix/zguide/raw/master/images/fig11.png)
 
-Since v3.3, however, ZeroMQ has a socket option called `ZMQ_ROUTER_RAW` that lets you read and write data without the ZeroMQ framing. You could use this to read and write proper HTTP requests and responses. Hardeep Singh contributed this change so that he could connect to Telnet servers from his ZeroMQ application. At time of writing this is still somewhat experimental, but it shows how ZeroMQ keeps evolving to solve new problems. Maybe the next patch will be yours.
+但是，从v3.3开始，ZeroMQ就有一个名为ZMQ_ROUTER_RAW的套接字选项，允许您在不使用ZeroMQ帧的情况下读写数据。您可以使用它来读写正确的HTTP请求和响应。Hardeep Singh对此做出了贡献，这样他就可以从ZeroMQ应用程序连接到Telnet服务器。在编写本文时，这还处于试验阶段，但它显示了ZeroMQ如何不断发展以解决新问题。也许下一个补丁就是你的了。
 
 
 
-| [I/O Threads](http://zguide.zeromq.org/page:all#I-O-Threads) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-31) [next](http://zguide.zeromq.org/page:all#header-33) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## I/O Threads
 
-We said that ZeroMQ does I/O in a background thread. One I/O thread (for all sockets) is sufficient for all but the most extreme applications. When you create a new context, it starts with one I/O thread. The general rule of thumb is to allow one I/O thread per gigabyte of data in or out per second. To raise the number of I/O threads, use the `zmq_ctx_set()` call *before* creating any sockets:
-
+我们说过ZeroMQ在后台线程中执行I/O。一个I/O线程(适用于所有类型socket)对于除最极端的应用程序之外的所有应用程序都是足够的。当您创建一个新的context时，它从一个I/O线程开始。一般的经验法则是，每秒允许1千兆字节（gigabyte ，1GB?）的数据进出一个I/O线程。要增加I/O线程的数量，请在创建任何socket之前使用zmq_ctx_set()调用:
+```
 int io_threads = 4;
 void *context = zmq_ctx_new ();
 zmq_ctx_set (context, ZMQ_IO_THREADS, io_threads);
 assert (zmq_ctx_get (context, ZMQ_IO_THREADS) == io_threads);
+```
+我们已经看到一个socket可以同时处理几十个、甚至数千个连接。这对如何编写应用程序具有根本性的影响。传统的网络应用程序每个远程连接有一个进程或一个线程，该进程或线程处理一个scoket。ZeroMQ允许您将整个结构折叠成一个进程，然后根据需要将其拆分以实现可伸缩性
 
-We've seen that one socket can handle dozens, even thousands of connections at once. This has a fundamental impact on how you write applications. A traditional networked application has one process or one thread per remote connection, and that process or thread handles one socket. ZeroMQ lets you collapse this entire structure into a single process and then break it up as necessary for scaling.
-
-If you are using ZeroMQ for inter-thread communications only (i.e., a multithreaded application that does no external socket I/O) you can set the I/O threads to zero. It's not a significant optimization though, more of a curiosity.
+如果您只将ZeroMQ用于线程间通信(即，一个没有外部scoket  I/O的多线程应用程序)您可以将I/O线程设置为零。这不是一个重要的优化，更多的是一个好奇心。
 
 
 
-| [Messaging Patterns](http://zguide.zeromq.org/page:all#Messaging-Patterns) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-32) [next](http://zguide.zeromq.org/page:all#header-34) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 消息传递模式（Messaging Patterns）
 
-Underneath the brown paper wrapping of ZeroMQ's socket API lies the world of messaging patterns. If you have a background in enterprise messaging, or know UDP well, these will be vaguely familiar. But to most ZeroMQ newcomers, they are a surprise. We're so used to the TCP paradigm where a socket maps one-to-one to another node.
+在ZeroMQ socket API的牛皮纸包装下，隐藏着消息传递模式的世界。如果您有企业消息传递方面的背景知识，或者熟悉UDP，那么您对这些可能会有些熟悉。但对ZeroMQ的大多数新来者来说，它们是一个惊喜。我们非常习惯TCP范例，其中socket 一对一地映射到另一个节点。
 
-Let's recap briefly what ZeroMQ does for you. It delivers blobs of data (messages) to nodes, quickly and efficiently. You can map nodes to threads, processes, or nodes. ZeroMQ gives your applications a single socket API to work with, no matter what the actual transport (like in-process, inter-process, TCP, or multicast). It automatically reconnects to peers as they come and go. It queues messages at both sender and receiver, as needed. It limits these queues to guard processes against running out of memory. It handles socket errors. It does all I/O in background threads. It uses lock-free techniques for talking between nodes, so there are never locks, waits, semaphores, or deadlocks.
+让我们简要回顾一下ZeroMQ为您做了什么。它将数据块(消息)快速有效地交付给节点。您可以将节点映射到线程、进程或节点。ZeroMQ为您的应用程序提供了一个可以使用的socket API，而不管实际的传输是什么(比如进程内、进程间、TCP或多播)。它会在同行来来去去时自动重新连接到他们。它根据需要在发送方和接收方对消息进行排队。它限制这些队列，以防止进程耗尽内存。它处理socket 错误。它在后台线程中执行所有I/O操作。它使用无锁技术在节点之间进行通信，因此从不存在锁、等待、信号量或死锁。
 
-But cutting through that, it routes and queues messages according to precise recipes called *patterns*. It is these patterns that provide ZeroMQ's intelligence. They encapsulate our hard-earned experience of the best ways to distribute data and work. ZeroMQ's patterns are hard-coded but future versions may allow user-definable patterns.
+但是，它会根据称为模式的精确配方路由和排队消息。正是这些模式提供了ZeroMQ的智能。它们浓缩了我们来之不易的经验，即最好的数据和工作分发方式。ZeroMQ的模式是硬编码的，但是未来的版本可能允许用户定义模式。
 
-ZeroMQ patterns are implemented by pairs of sockets with matching types. In other words, to understand ZeroMQ patterns you need to understand socket types and how they work together. Mostly, this just takes study; there is little that is obvious at this level.
+ZeroMQ模式由具有匹配类型的 sockets 对实现。换句话说，要理解ZeroMQ模式，您需要了解sockets 类型及其协同工作的方式。大多数情况下，这只需要学习;在这个层面上，没有什么是显而易见的。
+内置的核心ZeroMQ模式是:
 
-The built-in core ZeroMQ patterns are:
+- **Request-reply**： 它将一组客户机连接到一组服务。这是一个远程过程调用和任务分发模式。
 
-- **Request-reply**, which connects a set of clients to a set of services. This is a remote procedure call and task distribution pattern.
+- **Pub-sub**：它将一组发布者连接到一组订阅者。这是一个数据发布模式。
 
-- **Pub-sub**, which connects a set of publishers to a set of subscribers. This is a data distribution pattern.
+- **Pipeline**：它以扇出/扇入模式连接节点，该模式可以有多个步骤和循环。
+这是一个并行的任务分发和收集模式
 
-- **Pipeline**, which connects nodes in a fan-out/fan-in pattern that can have multiple steps and loops. This is a parallel task distribution and collection pattern.
-
-- **Exclusive pair**, which connects two sockets exclusively. This is a pattern for connecting two threads in a process, not to be confused with "normal" pairs of sockets.
-
-We looked at the first three of these in [Chapter 1 - Basics](http://zguide.zeromq.org/page:all#basics), and we'll see the exclusive pair pattern later in this chapter. The `zmq_socket()` man page is fairly clear about the patterns — it's worth reading several times until it starts to make sense. These are the socket combinations that are valid for a connect-bind pair (either side can bind):
-
+- **Exclusive pair**：只连接两个sockets 。这是一个用于连接进程中的两个线程的模式，不要与“普通”sockets 对混淆。
+我们在第1章-基础知识中讨论了前三种模式，我们将在本章后面看到the exclusive pair 模式。zmq_socket()手册页对模式非常清楚——值得反复阅读几遍，直到开始理解为止。这些socket组合对连接绑定对是有效的(任何一方都可以绑定):
 - PUB and SUB
 - REQ and REP
-- REQ and ROUTER (take care, REQ inserts an extra null frame)
-- DEALER and REP (take care, REP assumes a null frame)
+- REQ and ROUTER (注意，REQ插入了一个额外的空帧)
+- DEALER and REP (注意，REP插入了一个额外的空帧)
 - DEALER and ROUTER
 - DEALER and DEALER
 - ROUTER and ROUTER
 - PUSH and PULL
 - PAIR and PAIR
 
-You'll also see references to XPUB and XSUB sockets, which we'll come to later (they're like raw versions of PUB and SUB). Any other combination will produce undocumented and unreliable results, and future versions of ZeroMQ will probably return errors if you try them. You can and will, of course, bridge other socket types via code, i.e., read from one socket type and write to another.
+您还将看到对XPUB和XSUB sockets的引用，我们稍后将对此进行讨论(它们类似于PUB和SUB的原始版本)。任何其他组合都将产生未文档化和不可靠的结果，如果您尝试ZeroMQ的未来版本，可能会返回错误。当然，您可以并且将通过代码桥接其他socket类型，即，从一个socket类型读取并写入到另一个socket类型。
 
 
 
-| [High-Level Messaging Patterns](http://zguide.zeromq.org/page:all#High-Level-Messaging-Patterns) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-33) [next](http://zguide.zeromq.org/page:all#header-35) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-These four core patterns are cooked into ZeroMQ. They are part of the ZeroMQ API, implemented in the core C++ library, and are guaranteed to be available in all fine retail stores.
-
-On top of those, we add *high-level messaging patterns*. We build these high-level patterns on top of ZeroMQ and implement them in whatever language we're using for our application. They are not part of the core library, do not come with the ZeroMQ package, and exist in their own space as part of the ZeroMQ community. For example the Majordomo pattern, which we explore in [Reliable Request-Reply Patterns](http://zguide.zeromq.org/page:all#reliable-request-reply), sits in the GitHub Majordomo project in the ZeroMQ organization.
-
-One of the things we aim to provide you with in this book are a set of such high-level patterns, both small (how to handle messages sanely) and large (how to make a reliable pub-sub architecture).
+## High-Level Messaging Patterns
+这四个核心模式被煮成ZeroMQ。它们是ZeroMQ API的一部分，在核心c++库中实现，并保证可以在所有优秀的零售商店中使用。
+除此之外，我们还添加了高级消息传递模式。我们在ZeroMQ的基础上构建这些高级模式，并在应用程序中使用的任何语言中实现它们。它们不是核心库的一部分，不附带ZeroMQ包，并且作为ZeroMQ社区的一部分存在于它们自己的空间中。例如，我们在可靠的请求-应答模式中探索的Majordomo模式位于ZeroMQ组织中的GitHub Majordomo项目中。
+在本书中，我们的目标之一是为您提供一组这样的高级模式，包括小型模式(如何明智地处理消息)和大型模式(如何构建可靠的发布子体系结构)。
 
 
 
-| [Working with Messages](http://zguide.zeromq.org/page:all#Working-with-Messages) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-34) [next](http://zguide.zeromq.org/page:all#header-36) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 处理消息（Working with Messages）
 
-The `libzmq` core library has in fact two APIs to send and receive messages. The `zmq_send()`and `zmq_recv()` methods that we've already seen and used are simple one-liners. We will use these often, but `zmq_recv()` is bad at dealing with arbitrary message sizes: it truncates messages to whatever buffer size you provide. So there's a second API that works with zmq_msg_t structures, with a richer but more difficult API:
+libzmq核心库实际上有两个api来发送和接收消息。我们已经看到和使用的zmq_send()和zmq_recv()方法都是简单的一行程序。我们将经常使用这些方法，但是zmq_recv()不擅长处理任意消息大小:它将消息截断为您提供的任何缓冲区大小。所以有第二个API与zmq_msg_t结构一起工作，它有一个更丰富但更困难的API:
 
 - Initialise a message: `zmq_msg_init()`, `zmq_msg_init_size()`, `zmq_msg_init_data()`.
 - Sending and receiving a message: `zmq_msg_send()`, `zmq_msg_recv()`.
 - Release a message: `zmq_msg_close()`.
-- Access message content: `zmq_msg_data()`, `zmq_msg_size()`, `zmq_msg_more()`.
-- Work with message properties: `zmq_msg_get()`, `zmq_msg_set()`.
+- 访问 message content: `zmq_msg_data()`, `zmq_msg_size()`, `zmq_msg_more()`.
+- 处理消息属性 message properties: `zmq_msg_get()`, `zmq_msg_set()`.
 - Message manipulation: `zmq_msg_copy()`, `zmq_msg_move()`.
 
-On the wire, ZeroMQ messages are blobs of any size from zero upwards that fit in memory. You do your own serialization using protocol buffers, msgpack, JSON, or whatever else your applications need to speak. It's wise to choose a data representation that is portable, but you can make your own decisions about trade-offs.
+在网络上，ZeroMQ消息是从零开始的任何大小的块，大小都适合存储在内存中。您可以使用协议缓冲区、msgpack、JSON或应用程序需要使用的任何其他东西来进行自己的序列化。选择一个可移植的数据表示形式是明智的，但是您可以自己做出关于权衡的决定。
 
-In memory, ZeroMQ messages are `zmq_msg_t` structures (or classes depending on your language). Here are the basic ground rules for using ZeroMQ messages in C:
+在内存中，ZeroMQ消息是zmq_msg_t结构(或类，取决于您的语言)。下面是在C语言中使用ZeroMQ消息的基本规则:
 
-- You create and pass around `zmq_msg_t` objects, not blocks of data.
+- 创建并传递zmq_msg_t对象，而不是数据块。
+- 要读取消息，可以使用zmq_msg_init()创建一个空消息，然后将其传递给zmq_msg_recv()。
+- 要从新数据中编写一条消息，可以使用zmq_msg_init_size()创建一条消息，同时分配某个大小的数据块。然后使用memcpy填充数据，并将消息传递给zmq_msg_send()。
+- 要释放(而不是销毁)消息，可以调用zmq_msg_close()。这将删除引用，最终ZeroMQ将销毁消息。
+- 要访问消息内容，可以使用zmq_msg_data()。要知道消息包含多少数据，可以使用zmq_msg_size()。
+- 不要使用zmq_msg_move()、zmq_msg_copy()或zmq_msg_init_data()，除非您阅读了手册页并确切地知道为什么需要这些。
+- 您传递一个消息后zmq_msg_send(),ØMQ将clear 这个消息。i.e.，将大小设置为零。您不能两次发送相同的消息，并且不能在发送消息后访问消息数据。
+- 如果您使用zmq_send()和zmq_recv()，而不是消息结构，这些规则将不适用。
 
-- To read a message, you use `zmq_msg_init()` to create an empty message, and then you pass that to `zmq_msg_recv()`.
+如果您希望多次发送相同的消息，并且消息大小相当，那么创建第二个消息，使用zmq_msg_init()初始化它，然后使用zmq_msg_copy()创建第一个消息的副本。这不是复制数据，而是复制引用。然后可以发送消息两次(如果创建了更多副本，则可以发送两次或多次)，并且只有在发送或关闭最后一个副本时才最终销毁消息。
+ZeroMQ还支持多部分消息，它允许您以单个在线消息的形式发送或接收帧列表。这在实际应用程序中得到了广泛的应用，我们将在本章后面和高级请求-应答模式中对此进行研究。帧(在ZeroMQ参考手册页面中也称为“消息部件”)是ZeroMQ消息的基本有线格式。帧是指定长度的数据块。长度可以是0以上。如果您已经做过TCP编程，您就会明白为什么帧是“我现在应该读取多少关于这个网络socket的数据”这个问题的有用答案。
 
-- To write a message from new data, you use `zmq_msg_init_size()` to create a message and at the same time allocate a block of data of some size. You then fill that data using `memcpy`, and pass the message to `zmq_msg_send()`.
+有一个称为ZMTP的线级协议，它定义了ZeroMQ如何在TCP连接上读写帧。如果您对它的工作原理感兴趣，那么这个规范非常简短。
+最初，ZeroMQ消息是一个帧，就像UDP一样。稍后，我们使用多部分消息对此进行了扩展，这些消息非常简单，就是一系列帧，其中“more”位设置为1，然后是一个位设置为0的帧。然后ZeroMQ API允许您编写带有“more”标志的消息，当您读取消息时，它允许您检查是否有“more”。
+因此，在底层ZeroMQ API和参考手册中，消息和帧之间存在一些模糊。所以这里有一个有用的词汇:
 
-- To release (not destroy) a message, you call `zmq_msg_close()`. This drops a reference, and eventually ZeroMQ will destroy the message.
+- 消息可以是一个或多个部分。
+- 这些部分也被称为“框架”。
+- 每个部分都是zmq_msg_t对象。
+- 您在底层API中分别发送和接收每个部分。
+- 高级api提供包装器来发送整个多部分消息。
 
-- To access the message content, you use `zmq_msg_data()`. To know how much data the message contains, use `zmq_msg_size()`.
+还有一些关于信息值得了解的事情:
 
-- Do not use `zmq_msg_move()`, `zmq_msg_copy()`, or `zmq_msg_init_data()` unless you read the man pages and know precisely why you need these.
+- 您可以发送零长度的消息，例如，从一个线程发送信号到另一个线程。
+- ZeroMQ保证要不提供消息的所有部分(一个或多个)，要不一个也不提供。
+- ZeroMQ不会立即发送消息(单个或多个部分)，而是在稍后某个不确定的时间。因此，多部分消息必须适合于内存。
+- 消息(单个或多个部分)必须装入内存。如果您想发送任意大小的文件，您应该将它们分成几部分，并将每一部分作为单独的单部分消息发送。使用多部分数据不会减少内存消耗。
+- 必须在接收到消息后调用zmq_msg_close()，使用的语言在范围关闭时不会自动销毁对象。发送消息后不会调用此方法。
 
-- After you pass a message to `zmq_msg_send()`, ØMQ will clear the message, i.e., set the size to zero. You cannot send the same message twice, and you cannot access the message data after sending it.
-
-- These rules don't apply if you use `zmq_send()` and `zmq_recv()`, to which you pass byte arrays, not message structures.
-
-If you want to send the same message more than once, and it's sizable, create a second message, initialize it using `zmq_msg_init()`, and then use `zmq_msg_copy()` to create a copy of the first message. This does not copy the data but copies a reference. You can then send the message twice (or more, if you create more copies) and the message will only be finally destroyed when the last copy is sent or closed.
-
-ZeroMQ also supports *multipart* messages, which let you send or receive a list of frames as a single on-the-wire message. This is widely used in real applications and we'll look at that later in this chapter and in [Advanced Request-Reply Patterns](http://zguide.zeromq.org/page:all#advanced-request-reply).
-
-Frames (also called "message parts" in the ZeroMQ reference manual pages) are the basic wire format for ZeroMQ messages. A frame is a length-specified block of data. The length can be zero upwards. If you've done any TCP programming you'll appreciate why frames are a useful answer to the question "how much data am I supposed to read of this network socket now?"
-
-There is a wire-level [protocol called ZMTP](http://rfc.zeromq.org/spec:15) that defines how ZeroMQ reads and writes frames on a TCP connection. If you're interested in how this works, the spec is quite short.
-
-Originally, a ZeroMQ message was one frame, like UDP. We later extended this with multipart messages, which are quite simply series of frames with a "more" bit set to one, followed by one with that bit set to zero. The ZeroMQ API then lets you write messages with a "more" flag and when you read messages, it lets you check if there's "more".
-
-In the low-level ZeroMQ API and the reference manual, therefore, there's some fuzziness about messages versus frames. So here's a useful lexicon:
-
-- A message can be one or more parts.
-- These parts are also called "frames".
-- Each part is a `zmq_msg_t` object.
-- You send and receive each part separately, in the low-level API.
-- Higher-level APIs provide wrappers to send entire multipart messages.
-
-Some other things that are worth knowing about messages:
-
-- You may send zero-length messages, e.g., for sending a signal from one thread to another.
-
-- ZeroMQ guarantees to deliver all the parts (one or more) for a message, or none of them.
-
-- ZeroMQ does not send the message (single or multipart) right away, but at some indeterminate later time. A multipart message must therefore fit in memory.
-
-- A message (single or multipart) must fit in memory. If you want to send files of arbitrary sizes, you should break them into pieces and send each piece as separate single-part messages. *Using multipart data will not reduce memory consumption.*
-
-- You must call `zmq_msg_close()` when finished with a received message, in languages that don't automatically destroy objects when a scope closes. You don't call this method after sending a message.
-
-And to be repetitive, do not use `zmq_msg_init_data()` yet. This is a zero-copy method and is guaranteed to create trouble for you. There are far more important things to learn about ZeroMQ before you start to worry about shaving off microseconds.
-
-This rich API can be tiresome to work with. The methods are optimized for performance, not simplicity. If you start using these you will almost definitely get them wrong until you've read the man pages with some care. So one of the main jobs of a good language binding is to wrap this API up in classes that are easier to use.
+重复一下，不要使用zmq_msg_init_data()。这是一种零拷贝的方法，肯定会给您带来麻烦。在您开始担心减少微秒之前，还有许多更重要的事情需要了解ZeroMQ。
+使用这个丰富的API可能会很累。这些方法是针对性能而不是简单性进行优化的。如果你开始使用这些，你几乎肯定会弄错，直到你仔细阅读手册页。因此，一个好的语言绑定的主要工作之一就是将这个API封装在更容易使用的类中。
 
 
 
-| [Handling Multiple Sockets](http://zguide.zeromq.org/page:all#Handling-Multiple-Sockets) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-35) [next](http://zguide.zeromq.org/page:all#header-37) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 处理多个Sockets(Handling Multiple Sockets)
+在到目前为止的所有例子中，大多数例子的主循环是:
 
-In all the examples so far, the main loop of most examples has been:
+- 1.等待套接字上的消息。
+- 2.过程信息。
+- 3.重复。
 
-1. Wait for message on socket.
-2. Process message.
-3. Repeat.
-
-What if we want to read from multiple endpoints at the same time? The simplest way is to connect one socket to all the endpoints and get ZeroMQ to do the fan-in for us. This is legal if the remote endpoints are in the same pattern, but it would be wrong to connect a PULL socket to a PUB endpoint.
-
-To actually read from multiple sockets all at once, use `zmq_poll()`. An even better way might be to wrap `zmq_poll()` in a framework that turns it into a nice event-driven *reactor*, but it's significantly more work than we want to cover here.
-
-Let's start with a dirty hack, partly for the fun of not doing it right, but mainly because it lets me show you how to do nonblocking socket reads. Here is a simple example of reading from two sockets using nonblocking reads. This rather confused program acts both as a subscriber to weather updates, and a worker for parallel tasks:
+如果我们想同时读取多个端点呢?最简单的方法是将一个socket连接到所有端点，并让ZeroMQ为我们执行扇入。如果远程端点使用相同的模式，这是合法的，但是将PULL socket连接到PUB端点将是错误的。
+要同时读取多个sockets，可以使用zmq_poll()。更好的方法可能是将zmq_poll()封装在一个框架中，该框架将其转换为一个不错的事件驱动的反应器，但是它的工作量比我们在这里要介绍的多得多。让我们从一个脏的hack开始，部分原因是为了好玩，但主要是因为它让我向您展示如何进行非阻塞套接字读取。下面是一个使用非阻塞读取从两个套接字读取的简单示例。这个相当混乱的程序既是天气更新的订阅者，又是并行任务的工作人员:
 
 [msreader: Multiple socket reader in C](javascript:;)
 
