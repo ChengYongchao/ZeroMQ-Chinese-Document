@@ -868,246 +868,232 @@ ZeroMQ还支持多部分消息，它允许您以单个在线消息的形式发�
 - 3.重复。
 
 如果我们想同时读取多个端点呢?最简单的方法是将一个socket连接到所有端点，并让ZeroMQ为我们执行扇入。如果远程端点使用相同的模式，这是合法的，但是将PULL socket连接到PUB端点将是错误的。
-要同时读取多个sockets，可以使用zmq_poll()。更好的方法可能是将zmq_poll()封装在一个框架中，该框架将其转换为一个不错的事件驱动的反应器，但是它的工作量比我们在这里要介绍的多得多。让我们从一个脏的hack开始，部分原因是为了好玩，但主要是因为它让我向您展示如何进行非阻塞套接字读取。下面是一个使用非阻塞读取从两个套接字读取的简单示例。这个相当混乱的程序既是天气更新的订阅者，又是并行任务的工作人员:
+要同时读取多个sockets，可以使用zmq_poll()。更好的方法可能是将zmq_poll()封装在一个框架中，该框架将其转换为一个不错的事件驱动的反应器，但是它的工作量比我们在这里要介绍的多得多。
+让我们从一个脏的hack开始，部分原因是为了好玩，但主要是因为它让我向您展示如何进行非阻塞socket 读取。下面是一个使用非阻塞读取从两个sockets读取的简单示例。这个相当混乱的程序既是天气更新的订阅者，又是并行任务的工作人员:
 
 [msreader: Multiple socket reader in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:msreader) | [C#](http://zguide.zeromq.org/cs:msreader) | [Clojure](http://zguide.zeromq.org/clj:msreader) | [CL](http://zguide.zeromq.org/lisp:msreader) | [Delphi](http://zguide.zeromq.org/dpr:msreader) | [Erlang](http://zguide.zeromq.org/es:msreader) | [F#](http://zguide.zeromq.org/fsx:msreader) | [Felix](http://zguide.zeromq.org/flx:msreader) | [Go](http://zguide.zeromq.org/go:msreader) | [Java](http://zguide.zeromq.org/java:msreader) | [Lua](http://zguide.zeromq.org/lua:msreader) | [Objective-C](http://zguide.zeromq.org/m:msreader) | [Perl](http://zguide.zeromq.org/pl:msreader) | [PHP](http://zguide.zeromq.org/php:msreader) | [Python](http://zguide.zeromq.org/py:msreader) | [Ruby](http://zguide.zeromq.org/rb:msreader) | [Scala](http://zguide.zeromq.org/scala:msreader) | [Tcl](http://zguide.zeromq.org/tcl:msreader) | [Ada | Basic | Haskell | Haxe | Node.js | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
-You can treat the sockets fairly by reading first from one, then the second rather than prioritizing them as we did in this example.
-
-Now let's see the same senseless little application done right, using `zmq_poll()`:
-
+这种方法的代价是对第一个消息(循环末尾的休眠，当没有等待消息要处理时)增加一些延迟。在亚毫秒级延迟非常重要的应用程序中，这将是一个问题。此外，您还需要检查nanosleep()或其他函数的文档，以确保它不繁忙循环。
+您可以通过先读取一个套接字，然后读取第二个套接字来公平地对待套接字，而不是像我们在本例中所做的那样对它们进行优先级排序。
+现在让我们看看同样毫无意义的小应用程序，使用zmq_poll():
 [mspoller: Multiple socket poller in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:mspoller) | [C#](http://zguide.zeromq.org/cs:mspoller) | [Clojure](http://zguide.zeromq.org/clj:mspoller) | [CL](http://zguide.zeromq.org/lisp:mspoller) | [Delphi](http://zguide.zeromq.org/dpr:mspoller) | [Erlang](http://zguide.zeromq.org/es:mspoller) | [F#](http://zguide.zeromq.org/fsx:mspoller) | [Felix](http://zguide.zeromq.org/flx:mspoller) | [Go](http://zguide.zeromq.org/go:mspoller) | [Haskell](http://zguide.zeromq.org/hs:mspoller) | [Java](http://zguide.zeromq.org/java:mspoller) | [Lua](http://zguide.zeromq.org/lua:mspoller) | [Node.js](http://zguide.zeromq.org/js:mspoller) | [Objective-C](http://zguide.zeromq.org/m:mspoller) | [Perl](http://zguide.zeromq.org/pl:mspoller)| [PHP](http://zguide.zeromq.org/php:mspoller) | [Python](http://zguide.zeromq.org/py:mspoller) | [Ruby](http://zguide.zeromq.org/rb:mspoller) | [Scala](http://zguide.zeromq.org/scala:mspoller) | [Tcl](http://zguide.zeromq.org/tcl:mspoller) | [Ada | Basic | Haxe | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
-
-**typedef** **struct** {
-`    `void *socket;`       `*//  ZeroMQ socket to poll on*
-`    `int fd;`             `*//  OR, native file handle to poll on*
-`    `short events;`       `*//  Events to poll on*
-`    `short revents;`      `*//  Events returned after poll*
+The items structure has these four members:
+```
+typedef struct {
+    void *socket;       //  ZeroMQ socket to poll on
+    int fd;             //  OR, native file handle to poll on
+    short events;       //  Events to poll on
+    short revents;      //  Events returned after poll
 } zmq_pollitem_t;
+```
+## 多部分消息(Multipart Messages)
+ZeroMQ让我们用几个帧组成一个消息，给我们一个“多部分消息”。现实的应用程序大量使用多部分消息，既用于包装带有地址信息的消息，也用于简单的序列化。稍后我们将查看回复信封。
 
+我们现在要学习的只是如何盲目而安全地读写任何应用程序(例如代理)中的多部分消息，这些应用程序需要在不检查消息的情况下转发消息。
 
+当你处理多部分消息时，每个部分都是zmq_msg项。例如，如果要发送包含五个部分的消息，必须构造、发送和销毁五个zmq_msg项。您可以预先执行此操作(并将zmq_msg项存储在数组或其他结构中)，或者在发送它们时逐个执行。
 
-| [Multipart Messages](http://zguide.zeromq.org/page:all#Multipart-Messages) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-36) [next](http://zguide.zeromq.org/page:all#header-38) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-ZeroMQ lets us compose a message out of several frames, giving us a "multipart message". Realistic applications use multipart messages heavily, both for wrapping messages with address information and for simple serialization. We'll look at reply envelopes later.
-
-What we'll learn now is simply how to blindly and safely read and write multipart messages in any application (such as a proxy) that needs to forward messages without inspecting them.
-
-When you work with multipart messages, each part is a `zmq_msg` item. E.g., if you are sending a message with five parts, you must construct, send, and destroy five `zmq_msg`items. You can do this in advance (and store the `zmq_msg` items in an array or other structure), or as you send them, one-by-one.
-
-Here is how we send the frames in a multipart message (we receive each frame into a message object):
-
+这是我们如何发送帧在一个多部分的消息(我们接收每帧到一个消息对象):
+```
 zmq_msg_send (&message, socket, ZMQ_SNDMORE);
 …
 zmq_msg_send (&message, socket, ZMQ_SNDMORE);
 …
 zmq_msg_send (&message, socket, 0);
-
-Here is how we receive and process all the parts in a message, be it single part or multipart:
-
-**while** (1) {
-`    `zmq_msg_t message;
-`    `zmq_msg_init (&message);
-`    `zmq_msg_recv (&message, socket, 0);
-`    `*//  Process the message frame*
-`    `…
-`    `zmq_msg_close (&message);
-`    `**if** (!zmq_msg_more (&message))
-`        `**break**;`      `*//  Last message frame*
+```
+下面是我们如何接收和处理一个消息中的所有部分，无论是单个部分还是多个部分:
+```
+while (1) {
+    zmq_msg_t message;
+    zmq_msg_init (&message);
+    zmq_msg_recv (&message, socket, 0);
+    //  Process the message frame
+    …
+    zmq_msg_close (&message);
+    if (!zmq_msg_more (&message))
+        break;      //  Last message frame
 }
+```
 
-Some things to know about multipart messages:
+关于多部分消息需要知道的一些事情:
 
-- When you send a multipart message, the first part (and all following parts) are only actually sent on the wire when you send the final part.
-- If you are using `zmq_poll()`, when you receive the first part of a message, all the rest has also arrived.
-- You will receive all parts of a message, or none at all.
-- Each part of a message is a separate `zmq_msg` item.
-- You will receive all parts of a message whether or not you check the more property.
-- On sending, ZeroMQ queues message frames in memory until the last is received, then sends them all.
-- There is no way to cancel a partially sent message, except by closing the socket.
-
-
-
-| [Intermediaries and Proxies](http://zguide.zeromq.org/page:all#Intermediaries-and-Proxies) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-37) [next](http://zguide.zeromq.org/page:all#header-39) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-ZeroMQ aims for decentralized intelligence, but that doesn't mean your network is empty space in the middle. It's filled with message-aware infrastructure and quite often, we build that infrastructure with ZeroMQ. The ZeroMQ plumbing can range from tiny pipes to full-blown service-oriented brokers. The messaging industry calls this *intermediation*, meaning that the stuff in the middle deals with either side. In ZeroMQ, we call these proxies, queues, forwarders, device, or brokers, depending on the context.
-
-This pattern is extremely common in the real world and is why our societies and economies are filled with intermediaries who have no other real function than to reduce the complexity and scaling costs of larger networks. Real-world intermediaries are typically called wholesalers, distributors, managers, and so on.
+- 当您发送一个多部分消息时，第一部分(以及所有后续部分)只有在您发送最后一部分时才实际通过网络发送。
+- 如果您正在使用zmq_poll()，当您接收到消息的第一部分时，其他部分也都已经到达。
+- 您将接收到消息的所有部分，或者完全不接收。
+- 消息的每个部分都是一个单独的zmq_msg项。
+- 无论是否选中more属性，都将接收消息的所有部分。
+- 发送时，ZeroMQ将消息帧在内存中排队，直到最后一个消息帧被接收，然后将它们全部发送出去。
+- 除了关闭套接字外，无法取消部分发送的消息。
 
 
 
-| [The Dynamic Discovery Problem](http://zguide.zeromq.org/page:all#The-Dynamic-Discovery-Problem) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-38) [next](http://zguide.zeromq.org/page:all#header-40) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 中介和代理 Intermediaries and Proxies
+ZeroMQ的目标是分散智能，但这并不意味着你的网络是中间的空白空间。它充满了消息感知的基础设施，通常，我们使用ZeroMQ构建该基础设施。ZeroMQ管道可以从很小的管道到成熟的面向服务的brokers。消息传递行业将此称为中介，即中间的内容处理任何一方。在ZeroMQ中，我们根据context调用这些代理、队列、转发器、设备或brokers。
 
-One of the problems you will hit as you design larger distributed architectures is discovery. That is, how do pieces know about each other? It's especially difficult if pieces come and go, so we call this the "dynamic discovery problem".
+这种模式在现实世界中极为常见，这也是为什么我们的社会和经济中充斥着中介机构，它们除了降低大型网络的复杂性和规模成本外，没有其他实际功能。真实的中介通常称为批发商、分销商、经理等等。
 
-There are several solutions to dynamic discovery. The simplest is to entirely avoid it by hard-coding (or configuring) the network architecture so discovery is done by hand. That is, when you add a new piece, you reconfigure the network to know about it.
 
-**Figure 12 - Small-Scale Pub-Sub Network**
+
+## 动态发现问题 The Dynamic Discovery Problem
+
+在设计大型分布式架构时，您将遇到的问题之一是发现。也就是说，各个部分是如何相互了解的?这是特别困难的，如果部分来了又走了，所以我们称之为“动态发现问题”。
+
+动态发现有几种解决方案。最简单的方法是通过硬编码(或配置)网络体系结构来完全避免这种情况，以便手工完成发现。也就是说，当您添加一个新片段时，您将重新配置网络以了解它。
+
+**图 12 - 小规模的发布-订阅网络（Small-Scale Pub-Sub Network）**
 
 ![fig12.png](https://github.com/imatix/zguide/raw/master/images/fig12.png)
 
-In practice, this leads to increasingly fragile and unwieldy architectures. Let's say you have one publisher and a hundred subscribers. You connect each subscriber to the publisher by configuring a publisher endpoint in each subscriber. That's easy. Subscribers are dynamic; the publisher is static. Now say you add more publishers. Suddenly, it's not so easy any more. If you continue to connect each subscriber to each publisher, the cost of avoiding dynamic discovery gets higher and higher.
+在实践中，这将导致越来越脆弱和笨拙的体系结构。假设有一个发布者和100个订阅者。通过在每个订阅服务器中配置一个发布服务器端点，可以将每个订阅服务器连接到发布服务器。这很简单。用户是动态的;发布者是静态的。现在假设您添加了更多的发布者。突然间，它不再那么容易了。如果您继续将每个订阅者连接到每个发布者，那么避免动态发现的成本就会越来越高。
 
-**Figure 13 - Pub-Sub Network with a Proxy**
+**Figure 13 -使用代理的发布-订阅网络 Pub-Sub Network with a Proxy**
 
 ![fig13.png](https://github.com/imatix/zguide/raw/master/images/fig13.png)
 
-There are quite a few answers to this, but the very simplest answer is to add an intermediary; that is, a static point in the network to which all other nodes connect. In classic messaging, this is the job of the message broker. ZeroMQ doesn't come with a message broker as such, but it lets us build intermediaries quite easily.
+对此有很多答案，但最简单的答案是添加中介;也就是说，网络中所有其他节点都连接到的一个静态点。在传统的消息传递中，这是消息代理的工作。ZeroMQ没有提供这样的消息代理，但是它让我们可以很容易地构建中介。
 
-You might wonder, if all networks eventually get large enough to need intermediaries, why don't we simply have a message broker in place for all applications? For beginners, it's a fair compromise. Just always use a star topology, forget about performance, and things will usually work. However, message brokers are greedy things; in their role as central intermediaries, they become too complex, too stateful, and eventually a problem.
+您可能想知道，如果所有网络最终都变得足够大，需要中介体，那么为什么不为所有应用程序设置一个message broker呢?对于初学者来说，这是一个公平的妥协。只要始终使用星型拓扑结构，忘记性能，事情就会正常工作。然而，消息代理是贪婪的;作为中央中介人，它们变得太复杂、太有状态，最终成为一个问题。
 
-It's better to think of intermediaries as simple stateless message switches. A good analogy is an HTTP proxy; it's there, but doesn't have any special role. Adding a pub-sub proxy solves the dynamic discovery problem in our example. We set the proxy in the "middle" of the network. The proxy opens an XSUB socket, an XPUB socket, and binds each to well-known IP addresses and ports. Then, all other processes connect to the proxy, instead of to each other. It becomes trivial to add more subscribers or publishers.
+最好将中介看作简单的无状态消息交换机。一个很好的类比是HTTP代理;它在那里，但没有任何特殊的作用。在我们的示例中，添加一个 pub-sub代理解决了动态发现问题。我们在网络的“中间”设置代理。代理打开一个XSUB套接字、一个XPUB套接字，并将每个套接字绑定到已知的IP地址和端口。然后，所有其他进程都连接到代理，而不是彼此连接。添加更多订阅者或发布者变得很简单。
 
 **Figure 14 - Extended Pub-Sub**
 
 ![fig14.png](https://github.com/imatix/zguide/raw/master/images/fig14.png)
 
-We need XPUB and XSUB sockets because ZeroMQ does subscription forwarding from subscribers to publishers. XSUB and XPUB are exactly like SUB and PUB except they expose subscriptions as special messages. The proxy has to forward these subscription messages from subscriber side to publisher side, by reading them from the XPUB socket and writing them to the XSUB socket. This is the main use case for XSUB and XPUB.
+我们需要XPUB和XSUB套接字，因为ZeroMQ从订阅者到发布者执行订阅转发。XSUB和XPUB与SUB和PUB完全一样，只是它们将订阅公开为特殊消息。代理必须通过从XPUB套接字读取这些订阅消息并将其写入XSUB套接字，从而将这些订阅消息从订阅方转发到发布方。这是XSUB和XPUB的主要用例。
 
 
 
-| [Shared Queue (DEALER and ROUTER sockets)](http://zguide.zeromq.org/page:all#Shared-Queue-DEALER-and-ROUTER-sockets) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-39) [next](http://zguide.zeromq.org/page:all#header-41) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 共享队列Shared Queue (DEALER and ROUTER sockets)
 
-In the Hello World client/server application, we have one client that talks to one service. However, in real cases we usually need to allow multiple services as well as multiple clients. This lets us scale up the power of the service (many threads or processes or nodes rather than just one). The only constraint is that services must be stateless, all state being in the request or in some shared storage such as a database.
+在Hello World客户机/服务器应用程序中，我们有一个客户机与一个服务通信。然而，在实际情况中，我们通常需要允许多个服务和多个客户机。这让我们可以扩展服务的功能(许多线程、进程或节点，而不是一个)。唯一的限制是服务必须是无状态的，所有状态都在请求中，或者在一些共享存储(如数据库)中。
 
-**Figure 15 - Request Distribution**
+**Figure 15 -请求分发 Request Distribution**
 
 ![fig15.png](https://github.com/imatix/zguide/raw/master/images/fig15.png)
 
-There are two ways to connect multiple clients to multiple servers. The brute force way is to connect each client socket to multiple service endpoints. One client socket can connect to multiple service sockets, and the REQ socket will then distribute requests among these services. Let's say you connect a client socket to three service endpoints; A, B, and C. The client makes requests R1, R2, R3, R4. R1 and R4 go to service A, R2 goes to B, and R3 goes to service C.
+有两种方法可以将多个客户机连接到多个服务器。蛮力方法是将每个客户端套接字连接到多个服务端点。一个客户端套接字可以连接到多个服务套接字，然后REQ套接字将在这些服务之间分发请求。假设您将一个客户端套接字连接到三个服务端点;客户机请求R1、R2、R3、R4。R1和R4是服务A的，R2是服务B的，R3是服务C的。
 
-This design lets you add more clients cheaply. You can also add more services. Each client will distribute its requests to the services. But each client has to know the service topology. If you have 100 clients and then you decide to add three more services, you need to reconfigure and restart 100 clients in order for the clients to know about the three new services.
+这种设计可以让您更便宜地添加更多的客户端。您还可以添加更多的服务。每个客户端将其请求分发给服务。但是每个客户机都必须知道服务拓扑。如果您有100个客户机，然后决定再添加3个服务，那么您需要重新配置并重新启动100个客户机，以便客户机了解这3个新服务。
 
-That's clearly not the kind of thing we want to be doing at 3 a.m. when our supercomputing cluster has run out of resources and we desperately need to add a couple of hundred of new service nodes. Too many static pieces are like liquid concrete: knowledge is distributed and the more static pieces you have, the more effort it is to change the topology. What we want is something sitting in between clients and services that centralizes all knowledge of the topology. Ideally, we should be able to add and remove services or clients at any time without touching any other part of the topology.
+这显然不是我们想在凌晨3点做的事情，因为我们的超级计算集群已经耗尽了资源，我们迫切需要添加几百个新的服务节点。太多的静态部分就像液体混凝土:知识是分散的，你拥有的静态部分越多，改变拓扑结构的努力就越大。我们想要的是位于客户机和服务之间的东西，它集中了拓扑的所有知识。理想情况下，我们应该能够在任何时候添加和删除服务或客户机，而不需要触及拓扑的任何其他部分。
 
-So we'll write a little message queuing broker that gives us this flexibility. The broker binds to two endpoints, a frontend for clients and a backend for services. It then uses `zmq_poll()`to monitor these two sockets for activity and when it has some, it shuttles messages between its two sockets. It doesn't actually manage any queues explicitly—ZeroMQ does that automatically on each socket.
+因此，我们将编写一个小消息队列代理来提供这种灵活性。代理绑定到两个端点，一个用于客户机的前端，一个用于服务的后端。然后，它使用zmq_poll()监视这两个sockets 的活动，当它有一些活动时，它在它的两个sockets 之间传递消息。它实际上并不明确地管理任何队列—zeromq在每个sockets 上自动管理队列。
 
-When you use REQ to talk to REP, you get a strictly synchronous request-reply dialog. The client sends a request. The service reads the request and sends a reply. The client then reads the reply. If either the client or the service try to do anything else (e.g., sending two requests in a row without waiting for a response), they will get an error.
+当您使用REQ与REP对话时，您将得到一个严格同步的请求-应答对话框。客户端发送一个请求。服务读取请求并发送响应。然后客户端读取应答。如果客户机或服务尝试执行其他操作(例如，在不等待响应的情况下连续发送两个请求)，它们将得到一个错误。
 
-But our broker has to be nonblocking. Obviously, we can use `zmq_poll()` to wait for activity on either socket, but we can't use REP and REQ.
+但是我们的代理必须是非阻塞的。显然，我们可以使用zmq_poll()来等待两个socket上的活动，但是不能使用REP和REQ。
 
 **Figure 16 - Extended Request-Reply**
 
 ![fig16.png](https://github.com/imatix/zguide/raw/master/images/fig16.png)
 
-Luckily, there are two sockets called DEALER and ROUTER that let you do nonblocking request-response. You'll see in [Advanced Request-Reply Patterns](http://zguide.zeromq.org/page:all#advanced-request-reply) how DEALER and ROUTER sockets let you build all kinds of asynchronous request-reply flows. For now, we're just going to see how DEALER and ROUTER let us extend REQ-REP across an intermediary, that is, our little broker.
-
-In this simple extended request-reply pattern, REQ talks to ROUTER and DEALER talks to REP. In between the DEALER and ROUTER, we have to have code (like our broker) that pulls messages off the one socket and shoves them onto the other.
-
-The request-reply broker binds to two endpoints, one for clients to connect to (the frontend socket) and one for workers to connect to (the backend). To test this broker, you will want to change your workers so they connect to the backend socket. Here is a client that shows what I mean:
+幸运的是，有两个名为DEALER和ROUTER的socket允许您执行非阻塞的请求-响应。在高级请求-应答模式中，您将看到商人和路由器套接字如何让您构建各种异步请求-应答流。现在，我们只需要看看DEALER 和ROUTER 如何让我们扩展REQ-REP跨一个中介，也就是我们的小broker。
+在这个简单的扩展请求-应答模式中，REQ与ROUTER 对话，而DEALER 与REP对话。在DEALER 与ROUTER 之间，我们必须有代码(就像我们的broker一样)将消息从一个socket 中提取出来，并将它们推送到另一个socket 中。
+request-reply broker绑定到两个端点，一个用于clients 连接(前端socket)，另一个用于workers 连接(后端)。要测试此broker，您需要更改workers ，以便他们连接到后端socket。这是一个client ，我的意思是:
 
 [rrclient: Request-reply client in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:rrclient) | [C#](http://zguide.zeromq.org/cs:rrclient) | [Clojure](http://zguide.zeromq.org/clj:rrclient) | [CL](http://zguide.zeromq.org/lisp:rrclient) | [Delphi](http://zguide.zeromq.org/dpr:rrclient) | [Erlang](http://zguide.zeromq.org/es:rrclient) | [F#](http://zguide.zeromq.org/fsx:rrclient) | [Go](http://zguide.zeromq.org/go:rrclient) | [Haskell](http://zguide.zeromq.org/hs:rrclient) | [Haxe](http://zguide.zeromq.org/hx:rrclient) | [Java](http://zguide.zeromq.org/java:rrclient) | [Lua](http://zguide.zeromq.org/lua:rrclient) | [Node.js](http://zguide.zeromq.org/js:rrclient) | [Perl](http://zguide.zeromq.org/pl:rrclient) | [PHP](http://zguide.zeromq.org/php:rrclient) | [Python](http://zguide.zeromq.org/py:rrclient) | [Racket](http://zguide.zeromq.org/rkt:rrclient) | [Ruby](http://zguide.zeromq.org/rb:rrclient) | [Scala](http://zguide.zeromq.org/scala:rrclient) | [Tcl](http://zguide.zeromq.org/tcl:rrclient) | [Ada | Basic | Felix | Objective-C | ooc | Q](http://zguide.zeromq.org/main:translate)
 
+Here is the worker:
 [rrworker: Request-reply worker in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:rrworker) | [C#](http://zguide.zeromq.org/cs:rrworker) | [Clojure](http://zguide.zeromq.org/clj:rrworker) | [CL](http://zguide.zeromq.org/lisp:rrworker) | [Delphi](http://zguide.zeromq.org/dpr:rrworker) | [Erlang](http://zguide.zeromq.org/es:rrworker) | [F#](http://zguide.zeromq.org/fsx:rrworker) | [Go](http://zguide.zeromq.org/go:rrworker) | [Haskell](http://zguide.zeromq.org/hs:rrworker) | [Haxe](http://zguide.zeromq.org/hx:rrworker) | [Java](http://zguide.zeromq.org/java:rrworker) | [Lua](http://zguide.zeromq.org/lua:rrworker) | [Node.js](http://zguide.zeromq.org/js:rrworker) | [Perl](http://zguide.zeromq.org/pl:rrworker) | [PHP](http://zguide.zeromq.org/php:rrworker) | [Python](http://zguide.zeromq.org/py:rrworker) | [Racket](http://zguide.zeromq.org/rkt:rrworker) | [Ruby](http://zguide.zeromq.org/rb:rrworker) | [Scala](http://zguide.zeromq.org/scala:rrworker) | [Tcl](http://zguide.zeromq.org/tcl:rrworker) | [Ada | Basic | Felix | Objective-C | ooc | Q](http://zguide.zeromq.org/main:translate)
 
+这是代理，它可以正确地处理多部分消息:
 [rrbroker: Request-reply broker in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:rrbroker) | [C#](http://zguide.zeromq.org/cs:rrbroker) | [Clojure](http://zguide.zeromq.org/clj:rrbroker) | [CL](http://zguide.zeromq.org/lisp:rrbroker) | [Delphi](http://zguide.zeromq.org/dpr:rrbroker) | [Erlang](http://zguide.zeromq.org/es:rrbroker) | [F#](http://zguide.zeromq.org/fsx:rrbroker) | [Go](http://zguide.zeromq.org/go:rrbroker) | [Haskell](http://zguide.zeromq.org/hs:rrbroker) | [Haxe](http://zguide.zeromq.org/hx:rrbroker) | [Java](http://zguide.zeromq.org/java:rrbroker) | [Lua](http://zguide.zeromq.org/lua:rrbroker) | [Node.js](http://zguide.zeromq.org/js:rrbroker) | [Perl](http://zguide.zeromq.org/pl:rrbroker) | [PHP](http://zguide.zeromq.org/php:rrbroker) | [Python](http://zguide.zeromq.org/py:rrbroker) | [Ruby](http://zguide.zeromq.org/rb:rrbroker) | [Scala](http://zguide.zeromq.org/scala:rrbroker) | [Tcl](http://zguide.zeromq.org/tcl:rrbroker) | [Ada | Basic | Felix | Objective-C | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
+### 图 17 - Request-Reply Broker
 ![fig17.png](https://github.com/imatix/zguide/raw/master/images/fig17.png)
 
-Using a request-reply broker makes your client/server architectures easier to scale because clients don't see workers, and workers don't see clients. The only static node is the broker in the middle.
+使用请求-应答代理可以使客户机/服务器体系结构更容易伸缩，因为客户机看不到worker，而worker也看不到客户机。唯一的静态节点是中间的代理。
 
 
 
-| [ZeroMQ's Built-In Proxy Function](http://zguide.zeromq.org/page:all#ZeroMQ-s-Built-In-Proxy-Function) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-40) [next](http://zguide.zeromq.org/page:all#header-42) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## ZeroMQ的内置代理函数 ZeroMQ's Built-In Proxy Function
 
-It turns out that the core loop in the previous section's `rrbroker` is very useful, and reusable. It lets us build pub-sub forwarders and shared queues and other little intermediaries with very little effort. ZeroMQ wraps this up in a single method, `zmq_proxy()`:
+原来，上一节的rrbroker中的核心循环非常有用，并且可以重用。它让我们可以毫不费力地构建pub-sub转发器和共享队列以及其他小型中介。ZeroMQ将其封装在一个方法中，`zmq_proxy()`:
+```
+zmq_proxy (frontend, backend, capture);
+```
 
 zmq_proxy (frontend, backend, capture);
 
-The two (or three sockets, if we want to capture data) must be properly connected, bound, and configured. When we call the `zmq_proxy` method, it's exactly like starting the main loop of `rrbroker`. Let's rewrite the request-reply broker to call `zmq_proxy`, and re-badge this as an expensive-sounding "message queue" (people have charged houses for code that did less):
+必须正确地连接、绑定和配置这两个(或者三个sockets，如果我们想捕获数据的话)。当我们调用zmq_proxy方法时，就像启动rrbroker的主循环一样。让我们重写 request-reply broker来调用zmq_proxy，并将其重新标记为一个听起来很昂贵的“消息队列”(人们已经为执行更少的代码向house收费):
 
 [msgqueue: Message queue broker in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:msgqueue) | [C#](http://zguide.zeromq.org/cs:msgqueue) | [Clojure](http://zguide.zeromq.org/clj:msgqueue) | [CL](http://zguide.zeromq.org/lisp:msgqueue) | [Delphi](http://zguide.zeromq.org/dpr:msgqueue) | [Erlang](http://zguide.zeromq.org/es:msgqueue) | [F#](http://zguide.zeromq.org/fsx:msgqueue) | [Go](http://zguide.zeromq.org/go:msgqueue) | [Haskell](http://zguide.zeromq.org/hs:msgqueue) | [Haxe](http://zguide.zeromq.org/hx:msgqueue) | [Java](http://zguide.zeromq.org/java:msgqueue) | [Lua](http://zguide.zeromq.org/lua:msgqueue) | [Node.js](http://zguide.zeromq.org/js:msgqueue) | [Perl](http://zguide.zeromq.org/pl:msgqueue) | [PHP](http://zguide.zeromq.org/php:msgqueue) | [Python](http://zguide.zeromq.org/py:msgqueue) | [Q](http://zguide.zeromq.org/q:msgqueue) | [Ruby](http://zguide.zeromq.org/rb:msgqueue) | [Tcl](http://zguide.zeromq.org/tcl:msgqueue) | [Ada | Basic | Felix | Objective-C | ooc | Racket | Scala](http://zguide.zeromq.org/main:translate)
 
+如果您和大多数ZeroMQ用户一样，在这个阶段，您的思想开始思考，“如果我将随机的套接字类型插入代理，我能做什么坏事?”简单的回答是:试一试，看看发生了什么。实际上，您通常会坚持使用 ROUTER/DEALER、XSUB/XPUB或PULL/PUSH。
 
 
-| [Transport Bridging](http://zguide.zeromq.org/page:all#Transport-Bridging) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-41) [next](http://zguide.zeromq.org/page:all#header-43) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 传输桥接 Transport Bridging
 
-A frequent request from ZeroMQ users is, "How do I connect my ZeroMQ network with technology X?" where X is some other networking or messaging technology.
+ZeroMQ用户经常会问，“我如何将我的ZeroMQ网络与技术X连接起来?”其中X是其他网络或消息传递技术。
 
-**Figure 18 - Pub-Sub Forwarder Proxy**
+**图 18 - Pub-Sub Forwarder Proxy**
 
 ![fig18.png](https://github.com/imatix/zguide/raw/master/images/fig18.png)
 
-The simple answer is to build a *bridge*. A bridge is a small application that speaks one protocol at one socket, and converts to/from a second protocol at another socket. A protocol interpreter, if you like. A common bridging problem in ZeroMQ is to bridge two transports or networks.
-
-As an example, we're going to write a little proxy that sits in between a publisher and a set of subscribers, bridging two networks. The frontend socket (SUB) faces the internal network where the weather server is sitting, and the backend (PUB) faces subscribers on the external network. It subscribes to the weather service on the frontend socket, and republishes its data on the backend socket.
+答案很简单，就是建一座桥。桥接是一个小应用程序，它在一个socket上讲一个协议，并在另一个套接字上转换成 to/from第二个协议。协议解释器，如果你喜欢的话。ZeroMQ中常见的桥接问题是桥接两个传输或网络。
+例如，我们将编写一个小代理，它位于发布者和一组订阅者之间，连接两个网络。前端socket (SUB)面向气象服务器所在的内部网络，后端(PUB)面向外部网络上的订阅者。它订阅前端socket 上的天气服务，并在后端socket 上重新发布数据。
 
 [wuproxy: Weather update proxy in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:wuproxy) | [C#](http://zguide.zeromq.org/cs:wuproxy) | [Clojure](http://zguide.zeromq.org/clj:wuproxy) | [CL](http://zguide.zeromq.org/lisp:wuproxy) | [Delphi](http://zguide.zeromq.org/dpr:wuproxy) | [Erlang](http://zguide.zeromq.org/es:wuproxy) | [F#](http://zguide.zeromq.org/fsx:wuproxy) | [Go](http://zguide.zeromq.org/go:wuproxy) | [Haskell](http://zguide.zeromq.org/hs:wuproxy) | [Haxe](http://zguide.zeromq.org/hx:wuproxy) | [Java](http://zguide.zeromq.org/java:wuproxy) | [Lua](http://zguide.zeromq.org/lua:wuproxy) | [Node.js](http://zguide.zeromq.org/js:wuproxy) | [Perl](http://zguide.zeromq.org/pl:wuproxy) | [PHP](http://zguide.zeromq.org/php:wuproxy) | [Python](http://zguide.zeromq.org/py:wuproxy) | [Ruby](http://zguide.zeromq.org/rb:wuproxy) | [Scala](http://zguide.zeromq.org/scala:wuproxy) | [Tcl](http://zguide.zeromq.org/tcl:wuproxy) | [Ada | Basic | Felix | Objective-C | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
+它看起来与前面的代理示例非常相似，但关键部分是前端和后端sockets 位于两个不同的网络上。例如，我们可以使用这个模型将组播网络(pgm传输)连接到tcp publisher。
 
+## 处理错误和黑屏？ Handling Errors and ETERM
 
-| [Handling Errors and ETERM](http://zguide.zeromq.org/page:all#Handling-Errors-and-ETERM) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-42) [next](http://zguide.zeromq.org/page:all#header-44) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+ZeroMQ的错误处理哲学是快速故障和恢复能力的结合。我们认为，流程应该尽可能容易受到内部错误的攻击，并且尽可能健壮地抵御外部攻击和错误。打个比方，如果一个活细胞检测到一个内部错误，它就会自我毁灭，但它也会尽一切可能抵抗来自外部的攻击。
 
-ZeroMQ's error handling philosophy is a mix of fail-fast and resilience. Processes, we believe, should be as vulnerable as possible to internal errors, and as robust as possible against external attacks and errors. To give an analogy, a living cell will self-destruct if it detects a single internal error, yet it will resist attack from the outside by all means possible.
+断言充斥着ZeroMQ代码，对于健壮的代码是绝对重要的;它们只需要在细胞壁的右边。应该有这样一堵墙。如果不清楚故障是内部的还是外部的，那就是需要修复的设计缺陷。在C/ c++中，断言一旦出现错误就立即停止应用程序。在其他语言中，可能会出现异常或暂停。
 
-Assertions, which pepper the ZeroMQ code, are absolutely vital to robust code; they just have to be on the right side of the cellular wall. And there should be such a wall. If it is unclear whether a fault is internal or external, that is a design flaw to be fixed. In C/C++, assertions stop the application immediately with an error. In other languages, you may get exceptions or halts.
+当ZeroMQ检测到外部故障时，它会向调用代码返回一个错误。在一些罕见的情况下，如果没有明显的策略来从错误中恢复，它会无声地删除消息。
 
-When ZeroMQ detects an external fault it returns an error to the calling code. In some rare cases, it drops messages silently if there is no obvious strategy for recovering from the error.
+到目前为止，我们看到的大多数C示例中都没有错误处理。真正的代码应该对每个ZeroMQ调用执行错误处理。如果您使用的是C之外的语言绑定，那么绑定可能会为您处理错误。在C语言中，你需要自己做这个。有一些简单的规则，从POSIX约定开始:
 
-In most of the C examples we've seen so far there's been no error handling. **Real code should do error handling on every single ZeroMQ call**. If you're using a language binding other than C, the binding may handle errors for you. In C, you do need to do this yourself. There are some simple rules, starting with POSIX conventions:
-
-- Methods that create objects return NULL if they fail.
-- Methods that process data may return the number of bytes processed, or -1 on an error or failure.
-- Other methods return 0 on success and -1 on an error or failure.
-- The error code is provided in `errno` or `zmq_errno()`.
-- A descriptive error text for logging is provided by `zmq_strerror()`.
+- 如果创建对象的方法失败，则返回NULL。
+- 处理数据的方法可能返回已处理的字节数，或在出现错误或故障时返回-1。
+- 其他方法在成功时返回0，在错误或失败时返回-1。
+- 错误代码在errno或zmq_errno()中提供。
+- zmq_strerror()提供了用于日志记录的描述性错误文本。
 
 For example:
-
+```
 void *context = zmq_ctx_new ();
 assert (context);
 void *socket = zmq_socket (context, ZMQ_REP);
 assert (socket);
 int rc = zmq_bind (socket, "tcp://*:5555");
-**if** (rc == -1) {
-`    `printf ("E: bind failed: %s**\n**", strerror (errno));
-`    `**return** -1;
+if (rc == -1) {
+    printf ("E: bind failed: %s\n", strerror (errno));
+    return -1;
 }
+```
+有两个主要的例外情况，你应该作为非致命的处理:
+- 当您的代码接收到带有ZMQ_DONTWAIT选项的消息并且没有等待的数据时，ZeroMQ将返回-1并再次将errno设置为EAGAIN。
+- 当一个线程调用zmq_ctx_destroy()，而其他线程仍在执行阻塞工作时，zmq_ctx_destroy()调用关闭上下文，所有阻塞调用都以-1退出，errno设置为ETERM。
 
-There are two main exceptional conditions that you should handle as nonfatal:
+在C/ c++中，断言可以在经过优化的代码中完全删除，所以不要错误地将整个ZeroMQ调用封装在assert()中。它看起来整洁;然后优化器删除所有您想要执行的断言和调用，您的应用程序就会以令人印象深刻的方式崩溃。
 
-- When your code receives a message with the `ZMQ_DONTWAIT` option and there is no waiting data, ZeroMQ will return -1 and set `errno` to `EAGAIN`.
-
-- When one thread calls `zmq_ctx_destroy()`, and other threads are still doing blocking work, the `zmq_ctx_destroy()` call closes the context and all blocking calls exit with -1, and `errno` set to `ETERM`.
-
-In C/C++, asserts can be removed entirely in optimized code, so don't make the mistake of wrapping the whole ZeroMQ call in an `assert()`. It looks neat; then the optimizer removes all the asserts and the calls you want to make, and your application breaks in impressive ways.
-
-**Figure 19 - Parallel Pipeline with Kill Signaling**
+**图 19 - 带终止信号的并行管道Parallel Pipeline with Kill Signaling**
 
 ![fig19.png](https://github.com/imatix/zguide/raw/master/images/fig19.png)
 
