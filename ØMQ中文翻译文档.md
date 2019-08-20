@@ -1224,7 +1224,10 @@ ZeroMQ可能是有史以来编写多线程(MT)应用程序的最好方法。而Z
 - 远离经典的并发机制，如互斥、临界区、信号量等。这些是ZeroMQ应用程序中的反模式。
 - 在进程开始时创建一个ZeroMQ上下文，并将其传递给希望通过inproc套接字连接的所有线程。
 - 使用附加线程在应用程序中创建结构，并使用inproc上的PAIR sockets将这些线程连接到它们的父线程。模式是:绑定父socket，然后创建连接其socket的子线程。
-- 使用分离的线程模拟独立的任务，并使用它们自己的contexts。通过tcp连接这些。稍后，您可以将它们转移到独立进程，而不需要显著更改代码。线程之间的所有交互都以ZeroMQ消息的形式发生，您可以或多或少地正式定义它。不要在线程之间共享ZeroMQ socket。ZeroMQ socket不是线程安全的。从技术上讲，可以将socket从一个线程迁移到另一个线程，但这需要技巧。在线程之间共享socket的惟一合理的地方是语言绑定，它需要像socket上的垃圾收集那样做。
+- 使用分离的线程模拟独立的任务，并使用它们自己的contexts。通过tcp连接这些。稍后，您可以将它们转移到独立进程，而不需要显著更改代码。
+- 线程之间的所有交互都以ZeroMQ消息的形式发生，您可以或多或少地正式定义它。
+- 不要在线程之间共享ZeroMQ socket。ZeroMQ socket不是线程安全的。从技术上讲，可以将socket从一个线程迁移到另一个线程，但这需要技巧。在线程之间共享socket的惟一合理的地方是语言绑定，它需要像socket上的垃圾收集那样做。
+
 例如，如果需要在应用程序中启动多个代理，则希望在它们各自的线程中运行每个代理。在一个线程中创建代理前端和后端socket，然后将socket传递给另一个线程中的代理，这很容易出错。这可能在一开始看起来有效，但在实际使用中会随机失败。记住:除非在创建socket的线程中，否则不要使用或关闭socket。
 如果遵循这些规则，就可以很容易地构建优雅的多线程应用程序，然后根据需要将线程拆分为单独的进程。应用程序逻辑可以位于线程、进程或节点中:无论您的规模需要什么。
 ZeroMQ使用本机OS线程，而不是虚拟的“绿色”线程。其优点是您不需要学习任何新的线程API，而且ZeroMQ线程可以干净地映射到您的操作系统。您可以使用诸如Intel的ThreadChecker之类的标准工具来查看您的应用程序在做什么。缺点是本地线程api并不总是可移植的，而且如果您有大量的线程(数千个)，一些操作系统将会受到压力。
@@ -1402,13 +1405,19 @@ When you run the two programs, the subscriber should show you this:
 ## High-Water Marks
 
 当您可以快速地从一个进程发送消息到另一个进程时，您很快就会发现内存是一种宝贵的资源，并且可以被轻松地填满。流程中某些地方的几秒钟延迟可能会变成积压，导致服务器崩溃，除非您了解问题并采取预防措施。
+
 问题是这样的:假设您有一个进程A以很高的频率向正在处理它们的进程B发送消息。突然，B变得非常繁忙(垃圾收集、CPU过载等等)，短时间内无法处理消息。对于一些繁重的垃圾收集，可能需要几秒钟的时间，或者如果有更严重的问题，可能需要更长的时间。进程A仍然试图疯狂发送的消息会发生什么情况?有些将位于B的网络缓冲区中。有些将位于以太网线路本身。有些将位于A的网络缓冲区中。其余的会在A的内存中积累，就像A后面的应用程序发送它们一样快。如果不采取一些预防措施，A很容易耗尽内存并崩溃。
+
 这是消息代理的一个一致的经典问题。更糟糕的是，从表面上看，这是B的错，而B通常是a无法控制的用户编写的应用程序。
+
 答案是什么?一是把问题往上游推。A从其他地方获取信息。所以告诉这个过程，“停止!”等等。这叫做流量控制。这听起来很有道理，但是如果你在Twitter上发消息呢?你会告诉全世界的人在B行动起来的时候停止发推吗?
 
 流程控制在某些情况下有效，但在其他情况下无效。运输层不能告诉应用层“停止”，就像地铁系统不能告诉大型企业“请让您的员工再工作半个小时”一样。我太忙了”。消息传递的解决方案是设置缓冲区大小的限制，然后当达到这些限制时，采取一些明智的行动。在某些情况下(不是地铁系统)，答案是扔掉信息。在另一些国家，最好的策略是等待。
+
 ZeroMQ使用HWM(高水位)的概念来定义其内部管道的容量。每个socket 外或socket 内的连接都有自己的管道和用于发送和/或接收的HWM，这取决于socket 类型。一些socket (PUB, PUSH)只有发送缓冲区。有些(SUB、PULL、REQ、REP)只有接收缓冲区。一些(DEALER, ROUTER, PAIR)有发送和接收缓冲区。
+
 In ZeroMQ v2.x, HWM默认为无穷大。这很容易做到，但对于高容量publishers来说，通常也是致命的。In ZeroMQ v3.x,默认设置为1000，这样更合理。如果你还在用ZeroMQ v2.x，你应该总是在你的socket 上设置一个HWM，设置成1000或另一个考虑您的信息大小和预期的用户性能的数字来匹配ZeroMQ v3.x。
+
 当socket 到达其HWM时，它将根据socket 类型阻塞或删除数据。如果PUB和ROUTER socket 到达它们的HWM，它们将丢弃数据，而其他 socket 类型将阻塞。在inproc传输中，发送方和接收方共享相同的缓冲区，因此实际的HWM是双方设置的HWM的和。最后，HWMs并不精确;由于libzmq实现其队列的方式，默认情况下最多可以获得1,000条消息，但实际缓冲区大小可能要小得多(只有一半)。
 
 
@@ -1451,49 +1460,43 @@ In ZeroMQ v2.x, HWM默认为无穷大。这很容易做到，但对于高容量p
 
 
 
-| [The Request-Reply Mechanisms](http://zguide.zeromq.org/page:all#The-Request-Reply-Mechanisms) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-53) [next](http://zguide.zeromq.org/page:all#header-55) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## The Request-Reply Mechanisms（机制）
 
-We already looked briefly at multipart messages. Let's now look at a major use case, which is *reply message envelopes*. An envelope is a way of safely packaging up data with an address, without touching the data itself. By separating reply addresses into an envelope we make it possible to write general purpose intermediaries such as APIs and proxies that create, read, and remove addresses no matter what the message payload or structure is.
+我们已经简要介绍了多部分消息。现在让我们看一个主要的用例，即回复消息信封。信封是一种用地址安全包装数据的方法，而不需要接触数据本身。通过将回复地址分离到信封中，我们可以编写通用的中介，如api和代理，无论消息有效负载或结构是什么，它们都可以创建、读取和删除地址。
 
-In the request-reply pattern, the envelope holds the return address for replies. It is how a ZeroMQ network with no state can create round-trip request-reply dialogs.
+在请求-应答模式中，信封包含应答的返回地址。这就是没有状态的ZeroMQ网络如何创建往返的请求-应答对话框。
 
-When you use REQ and REP sockets you don't even see envelopes; these sockets deal with them automatically. But for most of the interesting request-reply patterns, you'll want to understand envelopes and particularly ROUTER sockets. We'll work through this step-by-step.
+当您使用REQ和REP sockets 时，您甚至看不到信封;这些sockets 自动处理它们。但是对于大多数有趣的请求-应答模式，您需要了解信封，特别是ROUTER sockets。我们会一步一步来。
 
 
 
-| [The Simple Reply Envelope](http://zguide.zeromq.org/page:all#The-Simple-Reply-Envelope) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-54) [next](http://zguide.zeromq.org/page:all#header-56) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## The Simple Reply Envelope
 
-A request-reply exchange consists of a *request* message, and an eventual *reply* message. In the simple request-reply pattern, there's one reply for each request. In more advanced patterns, requests and replies can flow asynchronously. However, the reply envelope always works the same way.
+请求-应答交换由请求消息和最终的应答消息组成。在简单的请求-应答模式中，每个请求都有一个应答。在更高级的模式中，请求和响应可以异步流动。然而，回复信封总是以相同的方式工作。
 
-The ZeroMQ reply envelope formally consists of zero or more reply addresses, followed by an empty frame (the envelope delimiter), followed by the message body (zero or more frames). The envelope is created by multiple sockets working together in a chain. We'll break this down.
+ZeroMQ应答信封正式由零个或多个应答地址组成，后跟一个空帧(信封分隔符)，后跟消息体(零个或多个帧)。信封是由多个sockets 在一个链中一起工作创建的。我们来分解一下。
 
-We'll start by sending "Hello" through a REQ socket. The REQ socket creates the simplest possible reply envelope, which has no addresses, just an empty delimiter frame and the message frame containing the "Hello" string. This is a two-frame message.
+我们将从通过REQsocket发送“Hello”开始。REQ套接字创建了最简单的回复信封，它没有地址，只有一个空的分隔符框架和包含“Hello”字符串的消息框架。这是一个两帧的消息。
 
 **Figure 26 - Request with Minimal Envelope**
 
 ![fig26.png](https://github.com/imatix/zguide/raw/master/images/fig26.png)
 
-The REP socket does the matching work: it strips off the envelope, up to and including the delimiter frame, saves the whole envelope, and passes the "Hello" string up the application. Thus our original Hello World example used request-reply envelopes internally, but the application never saw them.
+REP socket执行匹配工作:它剥离信封，直到并包括分隔符框架，保存整个信封，并将“Hello”字符串传递给应用程序。因此，我们最初的Hello World示例在内部使用了请求-回复信封，但是应用程序从未看到过它们。
 
-If you spy on the network data flowing between `hwclient` and `hwserver`, this is what you'll see: every request and every reply is in fact two frames, an empty frame and then the body. It doesn't seem to make much sense for a simple REQ-REP dialog. However you'll see the reason when we explore how ROUTER and DEALER handle envelopes.
+如果您监视在hwclient和hwserver之间流动的网络数据，您将看到:每个请求和每个响应实际上是两个帧，一个空帧，然后是主体。这对于一个简单的REQ-REP对话框似乎没有多大意义。不过，当我们探讨ROUTER和DEALER 如何处理信封时，您将会看到原因。
 
 
 
-| [The Extended Reply Envelope](http://zguide.zeromq.org/page:all#The-Extended-Reply-Envelope) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-55) [next](http://zguide.zeromq.org/page:all#header-57) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 加长回信信封The Extended Reply Envelope
 
-Now let's extend the REQ-REP pair with a ROUTER-DEALER proxy in the middle and see how this affects the reply envelope. This is the *extended request-reply pattern* we already saw in [Chapter 2 - Sockets and Patterns](http://zguide.zeromq.org/page:all#sockets-and-patterns). We can, in fact, insert any number of proxy steps. The mechanics are the same.
+现在，让我们使用中间的 ROUTER-DEALER代理扩展 REQ-REP对 ，看看这会如何影响回复信封。这是我们在Chapter 2 - Sockets and Patterns中已经看到的扩展请求-应答模式。实际上，我们可以插入任意数量的代理步骤。机制是一样的。
 
 **Figure 27 - Extended Request-Reply Pattern**
 
 ![fig27.png](https://github.com/imatix/zguide/raw/master/images/fig27.png)
 
-The proxy does this, in pseudo-code:
+代理在伪代码中这样做:
 
 ```
 prepare context, frontend and backend sockets
@@ -1507,81 +1510,65 @@ while true:
         send to frontend
 ```
 
-The ROUTER socket, unlike other sockets, tracks every connection it has, and tells the caller about these. The way it tells the caller is to stick the connection *identity* in front of each message received. An identity, sometimes called an *address*, is just a binary string with no meaning except "this is a unique handle to the connection". Then, when you send a message via a ROUTER socket, you first send an identity frame.
+与其他socket不同，ROUTER socket跟踪它所拥有的每个连接，并将这些信息告诉调用者。
+它告诉调用者的方法是将连接标识粘贴到接收到的每个消息前面。
+标识(有时称为地址)只是一个二进制字符串，除了“这是连接的惟一句柄”之外没有任何意义。
+然后，当您通过ROUTER socket发送消息时，您首先发送一个标识帧。
 
-The `zmq_socket()` man page describes it thus:
+zmq_socket()手册页这样描述它:
 
-> When receiving messages a ZMQ_ROUTER socket shall prepend a message part containing the identity of the originating peer to the message before passing it to the application. Messages received are fair-queued from among all connected peers. When sending messages a ZMQ_ROUTER socket shall remove the first part of the message and use it to determine the identity of the peer the message shall be routed to.
+> 当接收到消息时，ZMQ_ROUTER socket 在将消息传递给应用程序之前，应该在消息部分前加上一个包含消息的原始对等点标识的消息部分。接收到的消息在所有连接的对等点之间公平排队。发送消息时，ZMQ_ROUTER socket 应删除消息的第一部分，并使用它来确定消息应路由到的对等方的身份。
 
-As a historical note, ZeroMQ v2.2 and earlier use UUIDs as identities. ZeroMQ v3.0 and later generate a 5 byte identity by default (0 + a random 32bit integer). There's some impact on network performance, but only when you use multiple proxy hops, which is rare. Mostly the change was to simplify building `libzmq` by removing the dependency on a UUID library.
+作为历史记录，ZeroMQ v2.2和更早的版本使用uuid作为标识。ZeroMQ v3.0和以后的版本在默认情况下生成一个5字节的标识(0 +一个随机32位整数)。这对网络性能有一定的影响，但仅当您使用多个代理跃点时，这种情况很少见。主要的更改是通过删除对UUID库的依赖来简化libzmq的构建。
 
-Identities are a difficult concept to understand, but it's essential if you want to become a ZeroMQ expert. The ROUTER socket *invents* a random identity for each connection with which it works. If there are three REQ sockets connected to a ROUTER socket, it will invent three random identities, one for each REQ socket.
-
-So if we continue our worked example, let's say the REQ socket has a 3-byte identity `ABC`. Internally, this means the ROUTER socket keeps a hash table where it can search for `ABC`and find the TCP connection for the REQ socket.
-
-When we receive the message off the ROUTER socket, we get three frames.
+身份是一个很难理解的概念，但如果你想成为ZeroMQ专家，它是必不可少的。 ROUTER socket 为它工作的每个连接创建一个随机标识。如果有三个 REQ sockets连接到ROUTER socket，它将为每个REQ sockets创建一个随机标识。
+如果我们继续我们的工作示例，假设REQsocket有一个3字节的标识ABC。在内部，这意味着ROUTER socket保留一个哈希表，它可以在这个哈希表中搜索ABC并为REQsocket找到TCP连接。当我们从ROUTER socket接收消息时，我们得到三个帧。
 
 **Figure 28 - Request with One Address**
 
 ![fig28.png](https://github.com/imatix/zguide/raw/master/images/fig28.png)
 
-The core of the proxy loop is "read from one socket, write to the other", so we literally send these three frames out on the DEALER socket. If you now sniffed the network traffic, you would see these three frames flying from the DEALER socket to the REP socket. The REP socket does as before, strips off the whole envelope including the new reply address, and once again delivers the "Hello" to the caller.
-
-Incidentally the REP socket can only deal with one request-reply exchange at a time, which is why if you try to read multiple requests or send multiple replies without sticking to a strict recv-send cycle, it gives an error.
-
-You should now be able to visualize the return path. When `hwserver` sends "World" back, the REP socket wraps that with the envelope it saved, and sends a three-frame reply message across the wire to the DEALER socket.
+代理循环的核心是“从一个socket读取，向另一个socket写入”，因此我们将这三帧发送到ROUTER socket上。如果您现在嗅探网络流量，您将看到这三个帧从DEALER socket飞向REP socket。REP socket和前面一样，去掉整个信封，包括新的回复地址，并再次向调用者传递“Hello”。顺便提一下，REP socket一次只能处理一个请求-应答交换，这就是为什么如果您尝试读取多个请求或发送多个响应而不坚持严格的recv-send循环，它会给出一个错误。
+您现在应该能够可视化返回路径。当hwserver将“World”发送回来时，REP socket将其与它保存的信封打包，并通过网络向DEALER socket发送一个三帧回复消息。
 
 **Figure 29 - Reply with one Address**
 
 ![fig29.png](https://github.com/imatix/zguide/raw/master/images/fig29.png)
 
-Now the DEALER reads these three frames, and sends all three out via the ROUTER socket. The ROUTER takes the first frame for the message, which is the `ABC` identity, and looks up the connection for this. If it finds that, it then pumps the next two frames out onto the wire.
+现在DEALER 读取这三帧，并通过 ROUTER socket发送所有这三帧。 ROUTER接受消息的第一帧，即ABC标识，并为此查找连接。如果它发现了，它就会把接下来的两帧泵到网络上。
 
 **Figure 30 - Reply with Minimal Envelope**
 
 ![fig30.png](https://github.com/imatix/zguide/raw/master/images/fig30.png)
 
-The REQ socket picks this message up, and checks that the first frame is the empty delimiter, which it is. The REQ socket discards that frame and passes "World" to the calling application, which prints it out to the amazement of the younger us looking at ZeroMQ for the first time.
+REQ socket 接收此消息，并检查第一帧是否为空分隔符，它就是空分隔符。REQ socket 丢弃了框架并将“World”传递给调用应用程序，该应用程序将它打印出来，这让第一次看到ZeroMQ的年轻一代感到惊讶。
 
 
 
-| [What's This Good For?](http://zguide.zeromq.org/page:all#What-s-This-Good-For) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-56) [next](http://zguide.zeromq.org/page:all#header-58) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## What's This Good For?
 
-To be honest, the use cases for strict request-reply or extended request-reply are somewhat limited. For one thing, there's no easy way to recover from common failures like the server crashing due to buggy application code. We'll see more about this in [Reliable Request-Reply Patterns](http://zguide.zeromq.org/page:all#reliable-request-reply). However once you grasp the way these four sockets deal with envelopes, and how they talk to each other, you can do very useful things. We saw how ROUTER uses the reply envelope to decide which client REQ socket to route a reply back to. Now let's express this another way:
-
-- Each time ROUTER gives you a message, it tells you what peer that came from, as an identity.
-- You can use this with a hash table (with the identity as key) to track new peers as they arrive.
-- ROUTER will route messages asynchronously to any peer connected to it, if you prefix the identity as the first frame of the message.
-
-ROUTER sockets don't care about the whole envelope. They don't know anything about the empty delimiter. All they care about is that one identity frame that lets them figure out which connection to send a message to.
+说实话，用于严格请求-应答或扩展请求-应答的用例在某种程度上是有限的。首先，没有简单的方法可以从常见的故障中恢复，比如由于应用程序代码错误导致服务器崩溃。我们将在可靠的请求-应答模式中看到更多这方面的内容。然而，一旦你掌握了这四个sockets 处理信封的方式，以及它们之间的通信方式，你就可以做一些非常有用的事情。我们了解了ROUTER 如何使用应答信封来决定将应答路由回哪个客户机REQ socket 。现在让我们用另一种方式来表达:
+- 每次ROUTER 给你一个消息，它会告诉你来自哪个对等点，作为一个身份。
+- 您可以将其与散列表一起使用(以标识为键)，以便在新对等点到达时跟踪它们。
+- 如果将标识前缀作为消息的第一帧，ROUTER 将异步地将消息路由到连接到它的任何对等点。
+ROUTER sockets并不关心整个信封。他们对空分隔符一无所知。他们所关心的只是一个身份框架，这个框架让他们知道要向哪个连接发送消息。
 
 
 
-| [Recap of Request-Reply Sockets](http://zguide.zeromq.org/page:all#Recap-of-Request-Reply-Sockets) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-57) [next](http://zguide.zeromq.org/page:all#header-59) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## （概述）Recap of Request-Reply Sockets
 
-Let's recap this:
-
-- The REQ socket sends, to the network, an empty delimiter frame in front of the message data. REQ sockets are synchronous. REQ sockets always send one request and then wait for one reply. REQ sockets talk to one peer at a time. If you connect a REQ socket to multiple peers, requests are distributed to and replies expected from each peer one turn at a time.
-
-- The REP socket reads and saves all identity frames up to and including the empty delimiter, then passes the following frame or frames to the caller. REP sockets are synchronous and talk to one peer at a time. If you connect a REP socket to multiple peers, requests are read from peers in fair fashion, and replies are always sent to the same peer that made the last request.
-
-- The DEALER socket is oblivious to the reply envelope and handles this like any multipart message. DEALER sockets are asynchronous and like PUSH and PULL combined. They distribute sent messages among all connections, and fair-queue received messages from all connections.
-
-- The ROUTER socket is oblivious to the reply envelope, like DEALER. It creates identities for its connections, and passes these identities to the caller as a first frame in any received message. Conversely, when the caller sends a message, it uses the first message frame as an identity to look up the connection to send to. ROUTERS are asynchronous.
+让我们来总结一下:
+- REQ socket向网络发送消息数据前面的空分隔符帧。REQ socket是同步的。REQ socket总是发送一个请求，然后等待一个响应。REQ socket每次只与一个对等点通信。如果您将一个REQ socket连接到多个对等点，则请求将被分发到每个对等点，并期望每个对等点一次发送一个响应。
+-  REP socket读取并保存所有标识帧，直到并包括空分隔符，然后将以下一帧或多帧传递给调用方。 REP socket是同步的，每次只与一个对等点通信。如果您将一个 REP socket连接到多个对等点，则以公平的方式从对等点读取请求，并且始终将响应发送到发出最后一个请求的同一对等点。
+-  DEALER socket不理会回复信封，并像处理任何多部分消息一样处理此消息。DEALER socket是异步的，就像PUSH and PULL 的组合。它们在所有连接之间分发发送的消息，并且公平队列接收来自所有连接的消息。
+-  ROUTER socket 不理会回复信封，就像DEALER一样。它为其连接创建标识，并将这些标识作为任何接收到的消息中的第一帧传递给调用者。相反，当调用者发送消息时，它使用第一个消息帧作为标识来查找要发送到的连接。 ROUTERS是异步的。
 
 
 
-| [Request-Reply Combinations](http://zguide.zeromq.org/page:all#Request-Reply-Combinations) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-58) [next](http://zguide.zeromq.org/page:all#header-60) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## Request-Reply Combinations(组合)
 
-We have four request-reply sockets, each with a certain behavior. We've seen how they connect in simple and extended request-reply patterns. But these sockets are building blocks that you can use to solve many problems.
-
-These are the legal combinations:
+我们有四个 request-reply sockets，每个sockets具有特定的行为。我们已经看到它们如何以简单和扩展的请求-应答模式连接。但是这些sockets是您可以用来解决许多问题的构建块。
+这些是合法的组合:
 
 - REQ to REP
 - DEALER to REP
@@ -1597,16 +1584,11 @@ And these combinations are invalid (and I'll explain why):
 - REP to REP
 - REP to ROUTER
 
-Here are some tips for remembering the semantics. DEALER is like an asynchronous REQ socket, and ROUTER is like an asynchronous REP socket. Where we use a REQ socket, we can use a DEALER; we just have to read and write the envelope ourselves. Where we use a REP socket, we can stick a ROUTER; we just need to manage the identities ourselves.
-
-Think of REQ and DEALER sockets as "clients" and REP and ROUTER sockets as "servers". Mostly, you'll want to bind REP and ROUTER sockets, and connect REQ and DEALER sockets to them. It's not always going to be this simple, but it is a clean and memorable place to start.
+下面是一些记忆语义的技巧。DEALER 类似于异步REQ socket，而ROUTER 类似于异步REP socket。在我们使用REQ socket的地方，我们可以使用一个DEALER ;我们只需要自己读和写信封。在使用REP socket的地方，我们可以使用ROUTER ;我们只需要自己管理身份。将REQ和DEALER  socket视为“客户端”，而REP和ROUTER socket视为“服务器”。大多数情况下，您需要绑定REP和ROUTER socket，并将REQ和DEALER socket连接到它们。它并不总是这么简单，但它是一个干净而令人难忘的起点。
 
 
 
-| [The REQ to REP Combination](http://zguide.zeromq.org/page:all#The-REQ-to-REP-Combination) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-59) [next](http://zguide.zeromq.org/page:all#header-61) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
+## The REQ to REP Combination
 We've already covered a REQ client talking to a REP server but let's take one aspect: the REQ client *must* initiate the message flow. A REP server cannot talk to a REQ client that hasn't first sent it a request. Technically, it's not even possible, and the API also returns an `EFSM` error if you try it.
 
 
