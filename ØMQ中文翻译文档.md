@@ -1229,8 +1229,10 @@ ZeroMQ可能是有史以来编写多线程(MT)应用程序的最好方法。而Z
 - 不要在线程之间共享ZeroMQ socket。ZeroMQ socket不是线程安全的。从技术上讲，可以将socket从一个线程迁移到另一个线程，但这需要技巧。在线程之间共享socket的惟一合理的地方是语言绑定，它需要像socket上的垃圾收集那样做。
 
 例如，如果需要在应用程序中启动多个代理，则希望在它们各自的线程中运行每个代理。在一个线程中创建代理前端和后端socket，然后将socket传递给另一个线程中的代理，这很容易出错。这可能在一开始看起来有效，但在实际使用中会随机失败。记住:除非在创建socket的线程中，否则不要使用或关闭socket。
+
 如果遵循这些规则，就可以很容易地构建优雅的多线程应用程序，然后根据需要将线程拆分为单独的进程。应用程序逻辑可以位于线程、进程或节点中:无论您的规模需要什么。
 ZeroMQ使用本机OS线程，而不是虚拟的“绿色”线程。其优点是您不需要学习任何新的线程API，而且ZeroMQ线程可以干净地映射到您的操作系统。您可以使用诸如Intel的ThreadChecker之类的标准工具来查看您的应用程序在做什么。缺点是本地线程api并不总是可移植的，而且如果您有大量的线程(数千个)，一些操作系统将会受到压力。
+
 让我们看看这在实践中是如何工作的。我们将把原来的Hello World服务器变成更强大的服务器。原始服务器在一个线程中运行。如果每个请求的工作很低,很好:一个ØMQ线程CPU核心可以全速运行,没有等待,做了很多的工作。但是，实际的服务器必须对每个请求执行重要的工作。当10,000个客户机同时攻击服务器时，单个内核可能还不够。因此，一个实际的服务器将启动多个工作线程。然后，它以最快的速度接受请求，并将这些请求分发给它的工作线程。工作线程在工作中不断地工作，并最终将它们的响应发送回去。
 
 当然，您可以使用代理代理和外部工作进程来完成所有这些操作，但是启动一个占用16个内核的进程通常比启动16个进程(每个进程占用一个内核)更容易。此外，将worker作为线程运行将减少网络跳、延迟和网络流量。Hello World服务的MT版本基本上将代理和worker分解为一个进程:
@@ -1589,60 +1591,47 @@ And these combinations are invalid (and I'll explain why):
 
 
 ## The REQ to REP Combination
-We've already covered a REQ client talking to a REP server but let's take one aspect: the REQ client *must* initiate the message flow. A REP server cannot talk to a REQ client that hasn't first sent it a request. Technically, it's not even possible, and the API also returns an `EFSM` error if you try it.
+我们已经介绍了一个与REP服务器对话的REQ客户机，但是让我们看一个方面:REQ客户机必须启动消息流。代表服务器不能与未首先向其发送请求的REQ客户机通信。从技术上讲，这甚至是不可能的，如果您尝试了，API还会返回一个EFSM错误。
 
 
 
-| [The DEALER to REP Combination](http://zguide.zeromq.org/page:all#The-DEALER-to-REP-Combination) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-60) [next](http://zguide.zeromq.org/page:all#header-62) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## The DEALER to REP Combination
 
-Now, let's replace the REQ client with a DEALER. This gives us an asynchronous client that can talk to multiple REP servers. If we rewrote the "Hello World" client using DEALER, we'd be able to send off any number of "Hello" requests without waiting for replies.
+现在，让我们用DEALER替换REQ客户端。这为我们提供了一个异步客户机，它可以与多个 REP服务器通信。如果我们使用DEALER重写“Hello World”客户端，我们就可以发送任意数量的“Hello”请求，而不需要等待回复。
 
-When we use a DEALER to talk to a REP socket, we *must* accurately emulate the envelope that the REQ socket would have sent, or the REP socket will discard the message as invalid. So, to send a message, we:
+当我们使用一个DEALER 与一个REP socket通信时，我们必须准确地模拟REQ socket将发送的信封，否则REP socket将把消息作为无效丢弃。所以，为了传递信息，我们:
+- 发送一个设置了更多标志的空消息帧;然后
+- 发送消息体。
 
-- Send an empty message frame with the MORE flag set; then
-- Send the message body.
-
-And when we receive a message, we:
-
-- Receive the first frame and if it's not empty, discard the whole message;
-- Receive the next frame and pass that to the application.
+当我们收到信息时，我们:
+- 接收第一个帧，如果它不是空的，则丢弃整个消息;
+- 接收下一帧并将其传递给应用程序。
 
 
 
-| [The REQ to ROUTER Combination](http://zguide.zeromq.org/page:all#The-REQ-to-ROUTER-Combination) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-61) [next](http://zguide.zeromq.org/page:all#header-63) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## The REQ to ROUTER Combination
 
-In the same way that we can replace REQ with DEALER, we can replace REP with ROUTER. This gives us an asynchronous server that can talk to multiple REQ clients at the same time. If we rewrote the "Hello World" server using ROUTER, we'd be able to process any number of "Hello" requests in parallel. We saw this in the [Chapter 2 - Sockets and Patterns](http://zguide.zeromq.org/page:all#sockets-and-patterns) `mtserver`example.
+就像我们可以用DEALER替换REQ一样，我们也可以用ROUTER替换REP。这为我们提供了一个异步服务器，它可以同时与多个REQ客户机通信。如果我们使用ROUTER重写“Hello World”服务器，我们将能够并行处理任意数量的“Hello”请求。我们在 Chapter 2 - Sockets and Patterns        mtserver示例中看到了这一点。我们可以用两种不同的方式使用ROUTER:
+- 作为在前端和后端sockets之间切换消息的代理。
+- 作为读取消息并对其进行操作的应用程序。
 
-We can use ROUTER in two distinct ways:
-
-- As a proxy that switches messages between frontend and backend sockets.
-- As an application that reads the message and acts on it.
-
-In the first case, the ROUTER simply reads all frames, including the artificial identity frame, and passes them on blindly. In the second case the ROUTER *must* know the format of the reply envelope it's being sent. As the other peer is a REQ socket, the ROUTER gets the identity frame, an empty frame, and then the data frame.
+在第一种情况下，ROUTER 只是读取所有帧，包括人工身份帧，然后盲目地传递它们。在第二种情况下，ROUTER 必须知道它正在发送的回复信封的格式。由于另一个对等点是REQ socket，ROUTER 获得标识帧、空帧和数据帧。
 
 
 
-| [The DEALER to ROUTER Combination](http://zguide.zeromq.org/page:all#The-DEALER-to-ROUTER-Combination) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-62) [next](http://zguide.zeromq.org/page:all#header-64) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+The DEALER to ROUTER Combination
 
-Now we can switch out both REQ and REP with DEALER and ROUTER to get the most powerful socket combination, which is DEALER talking to ROUTER. It gives us asynchronous clients talking to asynchronous servers, where both sides have full control over the message formats.
+现在，我们可以切换REQ和REP与DEALER 和ROUTER ，以获得最强大的socket 组合，这是DEALER 与ROUTER 交谈。它为我们提供了与异步服务器通信的异步客户机，在异步服务器上，双方都完全控制消息格式。
 
-Because both DEALER and ROUTER can work with arbitrary message formats, if you hope to use these safely, you have to become a little bit of a protocol designer. At the very least you must decide whether you wish to emulate the REQ/REP reply envelope. It depends on whether you actually need to send replies or not.
+因为DEALER 和ROUTER 都可以处理任意的消息格式，如果您希望安全地使用这些格式，您必须成为一个协议设计人员。至少您必须决定是否要模拟REQ/REP回复信封。这取决于你是否真的需要发送回复。
 
 
 
-| [The DEALER to DEALER Combination](http://zguide.zeromq.org/page:all#The-DEALER-to-DEALER-Combination) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-63) [next](http://zguide.zeromq.org/page:all#header-65) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## The DEALER to DEALER Combination
 
-You can swap a REP with a ROUTER, but you can also swap a REP with a DEALER, if the DEALER is talking to one and only one peer.
+您可以用ROUTER交换一个REP ，但也可以用一个DEALER交换一个REP ，前提是DEALER只与一个同行通信。
 
-When you replace a REP with a DEALER, your worker can suddenly go full asynchronous, sending any number of replies back. The cost is that you have to manage the reply envelopes yourself, and get them right, or nothing at all will work. We'll see a worked example later. Let's just say for now that DEALER to DEALER is one of the trickier patterns to get right, and happily it's rare that we need it.
+当您将REP 替换为DEALER时，您的worker 可以突然完全异步，发送任意数量的回复。这样做的代价是你必须自己管理回复信封，并把它们处理好，否则什么都不管用。稍后我们将看到一个工作示例。就目前而言，DEALER 对DEALER 模式是一种比较棘手的模式，值得庆幸的是，我们很少需要这种模式。
 
 
 
@@ -1650,54 +1639,44 @@ When you replace a REP with a DEALER, your worker can suddenly go full asynchron
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 |                                                              |                                                              |
 
-This sounds perfect for N-to-N connections, but it's the most difficult combination to use. You should avoid it until you are well advanced with ZeroMQ. We'll see one example it in the Freelance pattern in [Reliable Request-Reply Patterns](http://zguide.zeromq.org/page:all#reliable-request-reply), and an alternative DEALER to ROUTER design for peer-to-peer work in [A Framework for Distributed Computing](http://zguide.zeromq.org/page:all#moving-pieces).
+对于N-to-N连接，这听起来很完美，但是这是最难使用的组合。在使用ZeroMQ之前，您应该避免使用它。我们将在自由模式和 Reliable Request-Reply 模式中看到一个例子，以及为分布式计算框架中的点对点工作设计的DEALER to ROUTER 的另一种替代方案（and an alternative DEALER to ROUTER design for peer-to-peer work in A Framework for Distributed Computing.）。
 
 
 
-| [Invalid Combinations](http://zguide.zeromq.org/page:all#Invalid-Combinations) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-65) [next](http://zguide.zeromq.org/page:all#header-67) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## Invalid Combinations
 
-Mostly, trying to connect clients to clients, or servers to servers is a bad idea and won't work. However, rather than give general vague warnings, I'll explain in detail:
+大多数情况下，试图将客户端连接到客户端或服务器连接到服务器是一个坏主意，不会奏效。不过，我不会给出笼统的模糊警告，而是会详细解释:
+- REQ对REQ:双方都希望从互相发送消息开始，并且只有在您对事情进行计时以便两个对等方同时交换消息的情况下，这才能工作。一想到它就会伤到我的大脑。
+- REQ to DEALER:理论上可以这样做，但是如果添加第二个REQ，就会中断，因为DEALER无法向原始对等点发送回复。因此REQ socket 会混淆，并且/或返回针对其他客户机的消息。
+- REP to REP：:双方都会等待对方发出第一个信息。
+- REP to ROUTER:理论上，如果 ROUTER socket知道REP socket 已经连接并且知道该连接的身份，ROUTER socket 可以启动对话框并发送正确格式的请求。这是混乱的，并没有增加超过经销商路由器（It's messy and adds nothing over DEALER to ROUTER）。
 
-- REQ to REQ: both sides want to start by sending messages to each other, and this could only work if you timed things so that both peers exchanged messages at the same time. It hurts my brain to even think about it.
-
-- REQ to DEALER: you could in theory do this, but it would break if you added a second REQ because DEALER has no way of sending a reply to the original peer. Thus the REQ socket would get confused, and/or return messages meant for another client.
-
-- REP to REP: both sides would wait for the other to send the first message.
-
-- REP to ROUTER: the ROUTER socket can in theory initiate the dialog and send a properly-formatted request, if it knows the REP socket has connected *and* it knows the identity of that connection. It's messy and adds nothing over DEALER to ROUTER.
-
-The common thread in this valid versus invalid breakdown is that a ZeroMQ socket connection is always biased towards one peer that binds to an endpoint, and another that connects to that. Further, that which side binds and which side connects is not arbitrary, but follows natural patterns. The side which we expect to "be there" binds: it'll be a server, a broker, a publisher, a collector. The side that "comes and goes" connects: it'll be clients and workers. Remembering this will help you design better ZeroMQ architectures.
+在这个有效与无效的细分中，常见的线程是ZeroMQ socket 连接总是偏向于绑定到端点的一个对等点，以及连接到端点的另一个对等点。此外，哪边绑定哪边连接并不是任意的，而是遵循自然模式。我们期望“在那里”的那一面是绑定的:它将是一个服务器、一个代理、一个发布者和一个收集器。“来了又走”的一方将clients 和workers联系起来。记住这一点将帮助您设计更好的ZeroMQ架构。
 
 
+## 探索Exploring ROUTER Sockets
 
-| [Exploring ROUTER Sockets](http://zguide.zeromq.org/page:all#Exploring-ROUTER-Sockets) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-66) [next](http://zguide.zeromq.org/page:all#header-68) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-Let's look at ROUTER sockets a little closer. We've already seen how they work by routing individual messages to specific connections. I'll explain in more detail how we identify those connections, and what a ROUTER socket does when it can't send a message.
+让我们再仔细看看ROUTER sockets。我们已经看到了它们如何通过将单个消息路由到特定的连接来工作。我将更详细地解释如何识别这些连接，以及ROUTER sockets在不能发送消息时做什么。
 
 
 
-| [Identities and Addresses](http://zguide.zeromq.org/page:all#Identities-and-Addresses) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-67) [next](http://zguide.zeromq.org/page:all#header-69) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### Identities and Addresses
 
-The *identity* concept in ZeroMQ refers specifically to ROUTER sockets and how they identify the connections they have to other sockets. More broadly, identities are used as addresses in the reply envelope. In most cases, the identity is arbitrary and local to the ROUTER socket: it's a lookup key in a hash table. Independently, a peer can have an address that is physical (a network endpoint like "tcp://192.168.55.117:5670") or logical (a UUID or email address or other unique key).
+ZeroMQ中的标识概念特别指ROUTER sockets ，以及它们如何标识与其他socket的连接。
+更广泛地说，身份在回复信封中用作地址。在大多数情况下，标识是任意的，并且是ROUTER sockets 的本地标识:它是哈希表中的一个查找键。独立地，对等点可以有物理地址(网络端点，如“tcp://192.168.55.117:5670”)或逻辑地址(UUID或电子邮件地址或其他惟一密钥)。
 
-An application that uses a ROUTER socket to talk to specific peers can convert a logical address to an identity if it has built the necessary hash table. Because ROUTER sockets only announce the identity of a connection (to a specific peer) when that peer sends a message, you can only really reply to a message, not spontaneously talk to a peer.
+使用ROUTER sockets 与特定对等点通信的应用程序，如果已经构建了必要的散列表，则可以将逻辑地址转换为标识。因为ROUTER sockets 只在一个连接(到一个特定的对等点)发送消息时声明该连接的身份，所以您只能真正地回复一个消息，而不能自动地与一个对等点通信。
 
-This is true even if you flip the rules and make the ROUTER connect to the peer rather than wait for the peer to connect to the ROUTER. However you can force the ROUTER socket to use a logical address in place of its identity. The `zmq_setsockopt` reference page calls this *setting the socket identity*. It works as follows:
+这是真的，即使你翻转规则，使ROUTER连接到对等点，而不是等待对等点连接到ROUTER。但是，您可以强制ROUTER sockets 使用逻辑地址来代替它的标识。zmq_setsockopt引用页面调用此设置socket标识。
+其工作原理如下:
 
-- The peer application sets the `ZMQ_IDENTITY` option of its peer socket (DEALER or REQ) *before* binding or connecting.
-- Usually the peer then connects to the already-bound ROUTER socket. But the ROUTER can also connect to the peer.
-- At connection time, the peer socket tells the router socket, "please use this identity for this connection".
-- If the peer socket doesn't say that, the router generates its usual arbitrary random identity for the connection.
-- The ROUTER socket now provides this logical address to the application as a prefix identity frame for any messages coming in from that peer.
-- The ROUTER also expects the logical address as the prefix identity frame for any outgoing messages.
-
-Here is a simple example of two peers that connect to a ROUTER socket, one that imposes a logical address "PEER2":
+- 对等应用程序在绑定或连接之前设置其对等socket (DEALER 或REQ)的ZMQ_IDENTITY选项。
+- 通常，对等点然后连接到已经绑定的 ROUTER socket。但是 ROUTER也可以连接到对等点。
+- 在连接时，对等socket 告诉ROUTER socket，“请为这个连接使用这个标识”。
+如果对等socket 没有这样说，ROUTER就为连接生成它通常的任意随机标识。
+ROUTER socket现在将此逻辑地址提供给应用程序，作为来自该对等点的任何消息的前缀标识帧。
+ROUTER 还期望逻辑地址作为任何传出消息的前缀标识帧。
+下面是连接到ROUTER socket的两个对等点的简单例子，其中一个附加了一个逻辑地址“PEER2”:
 
 [identity: Identity check in C](javascript:;)
 
