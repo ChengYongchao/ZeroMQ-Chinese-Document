@@ -1097,54 +1097,50 @@ if (rc == -1) {
 
 ![fig19.png](https://github.com/imatix/zguide/raw/master/images/fig19.png)
 
-Let's see how to shut down a process cleanly. We'll take the parallel pipeline example from the previous section. If we've started a whole lot of workers in the background, we now want to kill them when the batch is finished. Let's do this by sending a kill message to the workers. The best place to do this is the sink because it really knows when the batch is done.
+让我们看看如何干净利落地关闭进程。我们将使用上一节中的并行管道示例。如果我们在后台启动了大量的worker，那么现在我们想在批处理完成时杀死它们。让我们通过发送一个kill消息给工人来实现这一点。最好的地方是sink，因为它知道批处理什么时候完成。
+我们怎样把水槽和工人连接起来?推/拉插座是单向的。我们可以切换到另一种套接字类型，或者混合多个套接字流。让我们试试后者:使用发布-订阅模型向工人发送kill消息:
 
-How do we connect the sink to the workers? The PUSH/PULL sockets are one-way only. We could switch to another socket type, or we could mix multiple socket flows. Let's try the latter: using a pub-sub model to send kill messages to the workers:
+- sink 在新端点上创建一个PUB socket 。
+- Workers 将他们的输入socket 连接到这个端点。
+- 当sink 检测到批处理的结束时，它向其PUB socket 发送一个kill。
+- 当Workers 检测到此终止消息时，它将退出。
 
-- The sink creates a PUB socket on a new endpoint.
-- Workers connect their input socket to this endpoint.
-- When the sink detects the end of the batch, it sends a kill to its PUB socket.
-- When a worker detects this kill message, it exits.
-
-It doesn't take much new code in the sink:
-
+sink不需要太多的新代码:
+```
 void *controller = zmq_socket (context, ZMQ_PUB);
 zmq_bind (controller, "tcp://*:5559");
 …
-*//  Send kill signal to workers*
+//  Send kill signal to workers
 s_send (controller, "KILL");
-
-Here is the worker process, which manages two sockets (a PULL socket getting tasks, and a SUB socket getting control commands), using the `zmq_poll()` technique we saw earlier:
+```
+这是worker 进程，它使用我们前面看到的zmq_poll()技术管理两个sockets (一个获取任务的PULL socket和一个获取控制命令的SUB socket):
 
 [taskwork2: Parallel task worker with kill signaling in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:taskwork2) | [C#](http://zguide.zeromq.org/cs:taskwork2) | [Clojure](http://zguide.zeromq.org/clj:taskwork2) | [CL](http://zguide.zeromq.org/lisp:taskwork2) | [Delphi](http://zguide.zeromq.org/dpr:taskwork2) | [Erlang](http://zguide.zeromq.org/es:taskwork2) | [F#](http://zguide.zeromq.org/fsx:taskwork2) | [Go](http://zguide.zeromq.org/go:taskwork2) | [Haskell](http://zguide.zeromq.org/hs:taskwork2) | [Haxe](http://zguide.zeromq.org/hx:taskwork2) | [Java](http://zguide.zeromq.org/java:taskwork2) | [Lua](http://zguide.zeromq.org/lua:taskwork2) | [Node.js](http://zguide.zeromq.org/js:taskwork2) | [Objective-C](http://zguide.zeromq.org/m:taskwork2) | [Perl](http://zguide.zeromq.org/pl:taskwork2)| [PHP](http://zguide.zeromq.org/php:taskwork2) | [Python](http://zguide.zeromq.org/py:taskwork2) | [Ruby](http://zguide.zeromq.org/rb:taskwork2) | [Scala](http://zguide.zeromq.org/scala:taskwork2) | [Tcl](http://zguide.zeromq.org/tcl:taskwork2) | [Ada | Basic | Felix | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
-
+下面是修改后的sink应用程序。当它收集完结果后，它会向所有workers发送一条“杀死”消息:
 [tasksink2: Parallel task sink with kill signaling in C](javascript:;)
-
 
 [C++](http://zguide.zeromq.org/cpp:tasksink2) | [C#](http://zguide.zeromq.org/cs:tasksink2) | [Clojure](http://zguide.zeromq.org/clj:tasksink2) | [CL](http://zguide.zeromq.org/lisp:tasksink2) | [Delphi](http://zguide.zeromq.org/dpr:tasksink2) | [Erlang](http://zguide.zeromq.org/es:tasksink2) | [F#](http://zguide.zeromq.org/fsx:tasksink2) | [Go](http://zguide.zeromq.org/go:tasksink2) | [Haskell](http://zguide.zeromq.org/hs:tasksink2) | [Haxe](http://zguide.zeromq.org/hx:tasksink2) | [Java](http://zguide.zeromq.org/java:tasksink2) | [Lua](http://zguide.zeromq.org/lua:tasksink2) | [Node.js](http://zguide.zeromq.org/js:tasksink2) | [Objective-C](http://zguide.zeromq.org/m:tasksink2) | [Perl](http://zguide.zeromq.org/pl:tasksink2)| [PHP](http://zguide.zeromq.org/php:tasksink2) | [Python](http://zguide.zeromq.org/py:tasksink2) | [Ruby](http://zguide.zeromq.org/rb:tasksink2) | [Scala](http://zguide.zeromq.org/scala:tasksink2) | [Tcl](http://zguide.zeromq.org/tcl:tasksink2) | [Ada | Basic | Felix | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
-| [Handling Interrupt Signals](http://zguide.zeromq.org/page:all#Handling-Interrupt-Signals) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-43) [next](http://zguide.zeromq.org/page:all#header-45) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 处理中断信号 Handling Interrupt Signals
 
-Realistic applications need to shut down cleanly when interrupted with Ctrl-C or another signal such as `SIGTERM`. By default, these simply kill the process, meaning messages won't be flushed, files won't be closed cleanly, and so on.
+当使用Ctrl-C或其他信号(如SIGTERM)中断时，实际应用程序需要干净地关闭。
+默认情况下，这些操作只会杀死进程，这意味着不会刷新消息，不会干净地关闭文件，等等。
 
-Here is how we handle a signal in various languages:
+下面是我们如何处理不同语言的信号:
 
 [interrupt: Handling Ctrl-C cleanly in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:interrupt) | [C#](http://zguide.zeromq.org/cs:interrupt) | [Delphi](http://zguide.zeromq.org/dpr:interrupt) | [Erlang](http://zguide.zeromq.org/es:interrupt) | [Go](http://zguide.zeromq.org/go:interrupt) | [Haskell](http://zguide.zeromq.org/hs:interrupt) | [Haxe](http://zguide.zeromq.org/hx:interrupt) | [Java](http://zguide.zeromq.org/java:interrupt) | [Lua](http://zguide.zeromq.org/lua:interrupt) | [Node.js](http://zguide.zeromq.org/js:interrupt) | [Perl](http://zguide.zeromq.org/pl:interrupt) | [PHP](http://zguide.zeromq.org/php:interrupt) | [Python](http://zguide.zeromq.org/py:interrupt) | [Ruby](http://zguide.zeromq.org/rb:interrupt) | [Scala](http://zguide.zeromq.org/scala:interrupt) | [Ada | Basic | Clojure | CL | F# | Felix | Objective-C | ooc | Q | Racket | Tcl](http://zguide.zeromq.org/main:translate)
 
-- If your code is blocking in a blocking call (sending a message, receiving a message, or polling), then when a signal arrives, the call will return with `EINTR`.
-- Wrappers like `s_recv()` return NULL if they are interrupted.
-
-So check for an `EINTR` return code, a NULL return, and/or `s_interrupted`.
-
-Here is a typical code fragment:
+该程序提供s_catch_signals()，它捕获Ctrl-C (SIGINT)和SIGTERM。当其中一个信号到达时，s_catch_signals()处理程序设置全局变量s_interrupted。由于您的信号处理程序，您的应用程序不会自动死亡。相反，你有机会收拾干净，优雅地离开。现在您必须显式地检查中断并正确地处理它。通过在主代码的开头调用s_catch_signals()(从interrupt.c复制)来实现这一点。这将设置信号处理。中断将影响ZeroMQ调用如下:
+- 如果您的代码在阻塞调用(发送消息、接收消息或轮询)中阻塞，那么当信号到达时，调用将返回EINTR。
+- 如果s_recv()之类的包装器被中断，则返回NULL。
+因此，检查EINTR返回代码:NULL返回 and/or  s_interrupted。
+下面是一个典型的代码片段:
 
 ```
 s_catch_signals ();
@@ -1157,15 +1153,12 @@ while (!s_interrupted) {
 zmq_close (client);
 ```
 
-If you call `s_catch_signals()` and don't test for interrupts, then your application will become immune to Ctrl-C and `SIGTERM`, which may be useful, but is usually not.
+如果您调用s_catch_signals()而不测试中断，那么您的应用程序将对Ctrl-C和SIGTERM免疫，这可能有用，但通常不是。
 
 
+## 检测内存泄漏 Detecting Memory Leaks
 
-| [Detecting Memory Leaks](http://zguide.zeromq.org/page:all#Detecting-Memory-Leaks) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-44) [next](http://zguide.zeromq.org/page:all#header-46) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-Any long-running application has to manage memory correctly, or eventually it'll use up all available memory and crash. If you use a language that handles this automatically for you, congratulations. If you program in C or C++ or any other language where you're responsible for memory management, here's a short tutorial on using valgrind, which among other things will report on any leaks your programs have.
+任何长时间运行的应用程序都必须正确地管理内存，否则最终会耗尽所有可用内存并崩溃。如果您使用的语言可以自动处理这一问题，那么恭喜您。如果您使用C或c++或任何其他负责内存管理的语言编写程序，这里有一个关于使用valgrind的简短教程，其中包括报告程序中出现的任何泄漏。
 
 - To install valgrind, e.g., on Ubuntu or Debian, issue this command:
 
@@ -1210,51 +1203,34 @@ And after fixing any errors it reported, you should get the pleasant message:
 
 
 
-| [Multithreading with ZeroMQ](http://zguide.zeromq.org/page:all#Multithreading-with-ZeroMQ) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-45) [next](http://zguide.zeromq.org/page:all#header-47) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 多线程与ZeroMQMultithreading with ZeroMQ
 
-ZeroMQ is perhaps the nicest way ever to write multithreaded (MT) applications. Whereas ZeroMQ sockets require some readjustment if you are used to traditional sockets, ZeroMQ multithreading will take everything you know about writing MT applications, throw it into a heap in the garden, pour gasoline over it, and set it alight. It's a rare book that deserves burning, but most books on concurrent programming do.
+ZeroMQ可能是有史以来编写多线程(MT)应用程序的最好方法。而ZeroMQ sockets 需要一些调整，如果你习惯了传统sockets ，ZeroMQ多线程将采取你所知道的写MT应用程序的一切，把它扔到一个堆在花园里，浇上汽油，并点燃它。这是一本难得的值得一读的书，但是大多数关于并发编程的书都值得一读。
 
-To make utterly perfect MT programs (and I mean that literally), **we don't need mutexes, locks, or any other form of inter-thread communication except messages sent across ZeroMQ sockets.**
+为了使MT程序完全完美(我的意思是字面意思)，我们不需要互斥锁、锁或任何其他形式的线程间通信，除了通过ZeroMQ sockets 发送的消息。
 
-By "perfect MT programs", I mean code that's easy to write and understand, that works with the same design approach in any programming language, and on any operating system, and that scales across any number of CPUs with zero wait states and no point of diminishing returns.
+所谓“完美的MT程序”，我的意思是代码易于编写和理解，在任何编程语言和任何操作系统中都可以使用相同的设计方法，并且可以跨任意数量的cpu伸缩，没有等待状态，没有收益递减点。
 
-If you've spent years learning tricks to make your MT code work at all, let alone rapidly, with locks and semaphores and critical sections, you will be disgusted when you realize it was all for nothing. If there's one lesson we've learned from 30+ years of concurrent programming, it is: *just don't share state*. It's like two drunkards trying to share a beer. It doesn't matter if they're good buddies. Sooner or later, they're going to get into a fight. And the more drunkards you add to the table, the more they fight each other over the beer. The tragic majority of MT applications look like drunken bar fights.
+如果您花了多年的时间学习一些技巧，使MT代码能够正常工作，更不用说快速地使用锁、信号量和关键部分，那么当您意识到这一切都是徒劳时，您会感到厌恶。如果说我们从30多年的并发编程中学到了什么，那就是:不要共享状态。就像两个醉汉想要分享一杯啤酒。他们是不是好朋友并不重要。他们迟早会打起来的。你加的酒越多，他们就越会为了啤酒而打架。大多数MT应用程序看起来都像醉酒的酒吧斗殴。
 
-The list of weird problems that you need to fight as you write classic shared-state MT code would be hilarious if it didn't translate directly into stress and risk, as code that seems to work suddenly fails under pressure. A large firm with world-beating experience in buggy code released its list of "11 Likely Problems In Your Multithreaded Code", which covers forgotten synchronization, incorrect granularity, read and write tearing, lock-free reordering, lock convoys, two-step dance, and priority inversion.
+在编写经典的共享状态MT代码时，如果不能将这些奇怪的问题直接转化为压力和风险，那就太可笑了，因为在压力下似乎可以工作的代码会突然失效。一家在bug代码方面拥有世界一流经验的大型公司发布了它的“多线程代码中的11个可能问题”列表，其中包括被遗忘的同步、不正确的粒度、读写撕裂、无锁重排序、锁保护、两步舞和优先级反转。
 
-Yeah, we counted seven problems, not eleven. That's not the point though. The point is, do you really want that code running the power grid or stock market to start getting two-step lock convoys at 3 p.m. on a busy Thursday? Who cares what the terms actually mean? This is not what turned us on to programming, fighting ever more complex side effects with ever more complex hacks.
+我们数了7道题，不是11道。但这不是重点。问题是，您真的希望运行电网或股票市场的代码在繁忙的周四下午3点开始得到两步锁定护送吗?谁在乎这些术语的实际含义呢?这并不是让我们转向编程的原因，而是用更复杂的黑客攻击来对抗更复杂的副作用。
 
-Some widely used models, despite being the basis for entire industries, are fundamentally broken, and shared state concurrency is one of them. Code that wants to scale without limit does it like the Internet does, by sending messages and sharing nothing except a common contempt for broken programming models.
+尽管一些被广泛使用的模型是整个行业的基础，但它们从根本上是被破坏的，共享状态并发就是其中之一。想要无限扩展的代码就像互联网一样，发送消息，除了对坏掉的编程模型的普遍蔑视之外，什么也不分享。
+你应该遵循一些规则来编写快乐的多线程代码与ZeroMQ:
 
-You should follow some rules to write happy multithreaded code with ZeroMQ:
+- 在线程中单独隔离数据，永远不要在多个线程中共享数据。唯一的例外是ZeroMQ上下文，它是线程安全的。
+- 远离经典的并发机制，如互斥、临界区、信号量等。这些是ZeroMQ应用程序中的反模式。
+- 在进程开始时创建一个ZeroMQ上下文，并将其传递给希望通过inproc套接字连接的所有线程。
+- 使用附加线程在应用程序中创建结构，并使用inproc上的PAIR sockets将这些线程连接到它们的父线程。模式是:绑定父socket，然后创建连接其socket的子线程。
+- 使用分离的线程模拟独立的任务，并使用它们自己的contexts。通过tcp连接这些。稍后，您可以将它们转移到独立进程，而不需要显著更改代码。线程之间的所有交互都以ZeroMQ消息的形式发生，您可以或多或少地正式定义它。不要在线程之间共享ZeroMQ socket。ZeroMQ socket不是线程安全的。从技术上讲，可以将socket从一个线程迁移到另一个线程，但这需要技巧。在线程之间共享socket的惟一合理的地方是语言绑定，它需要像socket上的垃圾收集那样做。
+例如，如果需要在应用程序中启动多个代理，则希望在它们各自的线程中运行每个代理。在一个线程中创建代理前端和后端socket，然后将socket传递给另一个线程中的代理，这很容易出错。这可能在一开始看起来有效，但在实际使用中会随机失败。记住:除非在创建socket的线程中，否则不要使用或关闭socket。
+如果遵循这些规则，就可以很容易地构建优雅的多线程应用程序，然后根据需要将线程拆分为单独的进程。应用程序逻辑可以位于线程、进程或节点中:无论您的规模需要什么。
+ZeroMQ使用本机OS线程，而不是虚拟的“绿色”线程。其优点是您不需要学习任何新的线程API，而且ZeroMQ线程可以干净地映射到您的操作系统。您可以使用诸如Intel的ThreadChecker之类的标准工具来查看您的应用程序在做什么。缺点是本地线程api并不总是可移植的，而且如果您有大量的线程(数千个)，一些操作系统将会受到压力。
+让我们看看这在实践中是如何工作的。我们将把原来的Hello World服务器变成更强大的服务器。原始服务器在一个线程中运行。如果每个请求的工作很低,很好:一个ØMQ线程CPU核心可以全速运行,没有等待,做了很多的工作。但是，实际的服务器必须对每个请求执行重要的工作。当10,000个客户机同时攻击服务器时，单个内核可能还不够。因此，一个实际的服务器将启动多个工作线程。然后，它以最快的速度接受请求，并将这些请求分发给它的工作线程。工作线程在工作中不断地工作，并最终将它们的响应发送回去。
 
-- Isolate data privately within its thread and never share data in multiple threads. The only exception to this are ZeroMQ contexts, which are threadsafe.
-
-- Stay away from the classic concurrency mechanisms like as mutexes, critical sections, semaphores, etc. These are an anti-pattern in ZeroMQ applications.
-
-- Create one ZeroMQ context at the start of your process, and pass that to all threads that you want to connect via `inproc` sockets.
-
-- Use *attached* threads to create structure within your application, and connect these to their parent threads using PAIR sockets over `inproc`. The pattern is: bind parent socket, then create child thread which connects its socket.
-
-- Use *detached* threads to simulate independent tasks, with their own contexts. Connect these over `tcp`. Later you can move these to stand-alone processes without changing the code significantly.
-
-- All interaction between threads happens as ZeroMQ messages, which you can define more or less formally.
-
-- Don't share ZeroMQ sockets between threads. ZeroMQ sockets are not threadsafe. Technically it's possible to migrate a socket from one thread to another but it demands skill. The only place where it's remotely sane to share sockets between threads are in language bindings that need to do magic like garbage collection on sockets.
-
-If you need to start more than one proxy in an application, for example, you will want to run each in their own thread. It is easy to make the error of creating the proxy frontend and backend sockets in one thread, and then passing the sockets to the proxy in another thread. This may appear to work at first but will fail randomly in real use. Remember: *Do not use or close sockets except in the thread that created them.*
-
-If you follow these rules, you can quite easily build elegant multithreaded applications, and later split off threads into separate processes as you need to. Application logic can sit in threads, processes, or nodes: whatever your scale needs.
-
-ZeroMQ uses native OS threads rather than virtual "green" threads. The advantage is that you don't need to learn any new threading API, and that ZeroMQ threads map cleanly to your operating system. You can use standard tools like Intel's ThreadChecker to see what your application is doing. The disadvantages are that native threading APIs are not always portable, and that if you have a huge number of threads (in the thousands), some operating systems will get stressed.
-
-Let's see how this works in practice. We'll turn our old Hello World server into something more capable. The original server ran in a single thread. If the work per request is low, that's fine: one ØMQ thread can run at full speed on a CPU core, with no waits, doing an awful lot of work. But realistic servers have to do nontrivial work per request. A single core may not be enough when 10,000 clients hit the server all at once. So a realistic server will start multiple worker threads. It then accepts requests as fast as it can and distributes these to its worker threads. The worker threads grind through the work and eventually send their replies back.
-
-You can, of course, do all this using a proxy broker and external worker processes, but often it's easier to start one process that gobbles up sixteen cores than sixteen processes, each gobbling up one core. Further, running workers as threads will cut out a network hop, latency, and network traffic.
-
-The MT version of the Hello World service basically collapses the broker and workers into a single process:
+当然，您可以使用代理代理和外部工作进程来完成所有这些操作，但是启动一个占用16个内核的进程通常比启动16个进程(每个进程占用一个内核)更容易。此外，将worker作为线程运行将减少网络跳、延迟和网络流量。Hello World服务的MT版本基本上将代理和worker分解为一个进程:
 
 [mtserver: Multithreaded service in C](javascript:;)
 
@@ -1263,89 +1239,74 @@ The MT version of the Hello World service basically collapses the broker and wor
 
 ![fig20.png](https://github.com/imatix/zguide/raw/master/images/fig20.png)
 
-All the code should be recognizable to you by now. How it works:
+到目前为止，所有代码都应该是你能看懂的。它是如何工作的:
 
-- The server starts a set of worker threads. Each worker thread creates a REP socket and then processes requests on this socket. Worker threads are just like single-threaded servers. The only differences are the transport (`inproc` instead of `tcp`), and the bind-connect direction.
+- 服务器启动一组工作线程。每个工作线程创建一个REP socket，然后在这个socket上处理请求。工作线程就像单线程服务器。唯一的区别是传输(inproc而不是tcp)和绑定连接方向。
+- 服务器创建一个 ROUTER socket来与clients 通信，并将其绑定到外部接口(通过tcp)。
+- 服务器创建一个 DEALER socket来与工人对话，并将其绑定到其内部接口(通过inproc)。
+- 服务器启动连接两个sockets的代理。代理从所有客户端公平地提取传入请求，并将这些请求分发给工作人员。它还将回复路由回它们的原点。
 
-- The server creates a ROUTER socket to talk to clients and binds this to its external interface (over `tcp`).
+注意，在大多数编程语言中，创建线程是不可移植的。POSIX库是pthreads，但是在Windows上必须使用不同的API。在我们的示例中，pthread_create调用启动一个运行我们定义的worker_routine函数的新线程。我们将在 Advanced Request-Reply Patterns中看到如何将其封装到可移植API中。
 
-- The server creates a DEALER socket to talk to the workers and binds this to its internal interface (over `inproc`).
-
-- The server starts a proxy that connects the two sockets. The proxy pulls incoming requests fairly from all clients, and distributes those out to workers. It also routes replies back to their origin.
-
-Note that creating threads is not portable in most programming languages. The POSIX library is pthreads, but on Windows you have to use a different API. In our example, the `pthread_create` call starts up a new thread running the `worker_routine` function we defined. We'll see in [Advanced Request-Reply Patterns](http://zguide.zeromq.org/page:all#advanced-request-reply) how to wrap this in a portable API.
-
-Here the "work" is just a one-second pause. We could do anything in the workers, including talking to other nodes. This is what the MT server looks like in terms of ØMQ sockets and nodes. Note how the request-reply chain is `REQ-ROUTER-queue-DEALER-REP`.
+这里的“工作”只是一秒钟的停顿。我们可以在worker中做任何事情，包括与其他节点通信。
+这就是MT服务器在ØMQsockets 和节点方面的样子请注意 request-reply 链是如何表示为REQ-ROUTER-queue-DEALER-REP。
 
 
 
-| [Signaling Between Threads (PAIR Sockets)](http://zguide.zeromq.org/page:all#Signaling-Between-Threads-PAIR-Sockets) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-46) [next](http://zguide.zeromq.org/page:all#header-48) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 线程之间的通信Signaling Between Threads (PAIR Sockets)
 
-When you start making multithreaded applications with ZeroMQ, you'll encounter the question of how to coordinate your threads. Though you might be tempted to insert "sleep" statements, or use multithreading techniques such as semaphores or mutexes, **the only mechanism that you should use are ZeroMQ messages**. Remember the story of The Drunkards and The Beer Bottle.
+当您开始使用ZeroMQ创建多线程应用程序时，您将遇到如何协调线程的问题。尽管您可能想要插入“sleep”语句，或者使用多线程技术(如信号量或互斥锁)，但是您应该使用的惟一机制是ZeroMQ消息。记住酒鬼和啤酒瓶的故事。
 
-Let's make three threads that signal each other when they are ready. In this example, we use PAIR sockets over the `inproc` transport:
+让我们创建三个线程，当它们准备好时互相发出信号。在这个例子中，我们在inproc传输上使用 PAIR sockets:
 
 [mtrelay: Multithreaded relay in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:mtrelay) | [C#](http://zguide.zeromq.org/cs:mtrelay) | [Clojure](http://zguide.zeromq.org/clj:mtrelay) | [CL](http://zguide.zeromq.org/lisp:mtrelay) | [Delphi](http://zguide.zeromq.org/dpr:mtrelay) | [Erlang](http://zguide.zeromq.org/es:mtrelay) | [F#](http://zguide.zeromq.org/fsx:mtrelay) | [Go](http://zguide.zeromq.org/go:mtrelay) | [Haskell](http://zguide.zeromq.org/hs:mtrelay) | [Haxe](http://zguide.zeromq.org/hx:mtrelay) | [Java](http://zguide.zeromq.org/java:mtrelay) | [Lua](http://zguide.zeromq.org/lua:mtrelay) | [Perl](http://zguide.zeromq.org/pl:mtrelay) | [PHP](http://zguide.zeromq.org/php:mtrelay) | [Python](http://zguide.zeromq.org/py:mtrelay) | [Q](http://zguide.zeromq.org/q:mtrelay) | [Ruby](http://zguide.zeromq.org/rb:mtrelay) | [Scala](http://zguide.zeromq.org/scala:mtrelay) | [Ada | Basic | Felix | Node.js | Objective-C | ooc | Racket | Tcl](http://zguide.zeromq.org/main:translate)
-
+Figure 21 - 接力赛The Relay Race
 ![fig21.png](https://github.com/imatix/zguide/raw/master/images/fig21.png)
 
-This is a classic pattern for multithreading with ZeroMQ:
+这是一个经典的模式多线程与ZeroMQ:
+- 1.两个线程使用共享context,通过inproc进行通信。
+- 2.父线程创建一个socket，将其绑定到inproc://端点，然后启动子线程，将context传递给它。
+子线程创建第二个socket，将其连接到inproc://端点，然后向父线程发出准备就绪的信号。
 
-1. Two threads communicate over `inproc`, using a shared context.
-2. The parent thread creates one socket, binds it to an `inproc://` endpoint, and *then*starts the child thread, passing the context to it.
-3. The child thread creates the second socket, connects it to that `inproc://` endpoint, and *then* signals to the parent thread that it's ready.
+注意，使用此模式的多线程代码不能扩展到进程。如果您使用inproc和 socket pairs，那么您正在构建一个紧密绑定的应用程序，即，其中线程在结构上相互依赖。当低延迟非常重要时，执行此操作。另一种设计模式是松散绑定的应用程序，其中线程有自己的context ，并通过ipc或tcp进行通信。您可以轻松地将松散绑定的线程拆分为单独的进程。
+这是我们第一次展示使用 PAIR sockets的示例。为什么使用PAIR?其他socket 组合似乎也有效果，但它们都有副作用，可能会干扰信号:
 
-Note that multithreading code using this pattern is not scalable out to processes. If you use `inproc` and socket pairs, you are building a tightly-bound application, i.e., one where your threads are structurally interdependent. Do this when low latency is really vital. The other design pattern is a loosely bound application, where threads have their own context and communicate over `ipc` or `tcp`. You can easily break loosely bound threads into separate processes.
+- 您可以使用PUSH作为发送方，PULL作为接收方。这看起来很简单，也很有效，但是请记住PUSH将向所有可用的接收者分发消息。如果你不小心启动了两个接收器(例如，你已经启动了一个接收器，然后你又启动了另一个接收器)，你将“丢失”一半的信号。PAIR 具有拒绝多个连接的优势;这个PAIR 是独一无二的。
+- 您可以使用DEALER作为发送方，使用 ROUTER 作为接收方。ROUTER ，然而，将你的消息包装在一个“信封”，这意味着你的零大小的信号变成一个多部分的消息。如果您不关心数据并将任何内容视为有效信号，如果您从socket中读取的次数不超过一次，那么这就无关紧要了。然而，如果你决定发送真实的数据，你会突然发现ROUTER提供给你“错误”的消息。DEALER 还分发outgoing 的消息，像PUSH一样带来相同的风险。
+- 您可以将PUB用于发送方，将SUB用于接收方。这将正确地发送您的邮件，就像您发送邮件一样，PUB不会像PUSH或DEALER那样分发但是，您需要使用空订阅来配置订阅者，这很烦人。
+由于这些原因，PAIR是线程对之间协调的最佳选择。
 
-This is the first time we've shown an example using PAIR sockets. Why use PAIR? Other socket combinations might seem to work, but they all have side effects that could interfere with signaling:
+## 节点的协调Node Coordination
 
-- You can use PUSH for the sender and PULL for the receiver. This looks simple and will work, but remember that PUSH will distribute messages to all available receivers. If you by accident start two receivers (e.g., you already have one running and you start a second), you'll "lose" half of your signals. PAIR has the advantage of refusing more than one connection; the pair is *exclusive*.
+当您想要协调网络上的一组节点时，PAIR sockets将不再有效。这是少数几个线程和节点策略不同的领域之一。基本上，节点来来去去，而线程通常是静态的。如果远程节点离开并返回， PAIR sockets不会自动重新连接。
 
-- You can use DEALER for the sender and ROUTER for the receiver. ROUTER, however, wraps your message in an "envelope", meaning your zero-size signal turns into a multipart message. If you don't care about the data and treat anything as a valid signal, and if you don't read more than once from the socket, that won't matter. If, however, you decide to send real data, you will suddenly find ROUTER providing you with "wrong" messages. DEALER also distributes outgoing messages, giving the same risk as PUSH.
-
-- You can use PUB for the sender and SUB for the receiver. This will correctly deliver your messages exactly as you sent them and PUB does not distribute as PUSH or DEALER do. However, you need to configure the subscriber with an empty subscription, which is annoying.
-
-For these reasons, PAIR makes the best choice for coordination between pairs of threads.
-
-
-
-| [Node Coordination](http://zguide.zeromq.org/page:all#Node-Coordination) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-47) [next](http://zguide.zeromq.org/page:all#header-49) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-When you want to coordinate a set of nodes on a network, PAIR sockets won't work well any more. This is one of the few areas where the strategies for threads and nodes are different. Principally, nodes come and go whereas threads are usually static. PAIR sockets do not automatically reconnect if the remote node goes away and comes back.
-
-**Figure 22 - Pub-Sub Synchronization**
+**Figure 22 - 发布-订阅同步Pub-Sub Synchronization**
 
 ![fig22.png](https://github.com/imatix/zguide/raw/master/images/fig22.png)
 
-The second significant difference between threads and nodes is that you typically have a fixed number of threads but a more variable number of nodes. Let's take one of our earlier scenarios (the weather server and clients) and use node coordination to ensure that subscribers don't lose data when starting up.
+线程和节点之间的第二个显著差异是，通常有固定数量的线程，但节点的数量更可变。让我们以前面的一个场景(天气服务器和客户机)为例，使用节点协调确保订阅者在启动时不会丢失数据。
 
-This is how the application will work:
+以下是应用程序的工作原理:
 
-- The publisher knows in advance how many subscribers it expects. This is just a magic number it gets from somewhere.
-
-- The publisher starts up and waits for all subscribers to connect. This is the node coordination part. Each subscriber subscribes and then tells the publisher it's ready via another socket.
-
-- When the publisher has all subscribers connected, it starts to publish data.
-
-In this case, we'll use a REQ-REP socket flow to synchronize subscribers and publisher. Here is the publisher:
+- 发布者预先知道它希望有多少订阅者。这是一个神奇的数字。
+- 发布者启动并等待所有订阅者连接。这是节点协调部分。每个订阅者订阅，然后通过另一个socket告诉发布者它已经准备好了。
+- 当发布者连接了所有订阅者后，它开始发布数据。
+在本例中，我们将使用REQ-REP套接字流来同步订阅者和发布者。以下是出版商:
 
 [syncpub: Synchronized publisher in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:syncpub) | [C#](http://zguide.zeromq.org/cs:syncpub) | [Clojure](http://zguide.zeromq.org/clj:syncpub) | [CL](http://zguide.zeromq.org/lisp:syncpub) | [Delphi](http://zguide.zeromq.org/dpr:syncpub) | [Erlang](http://zguide.zeromq.org/es:syncpub) | [F#](http://zguide.zeromq.org/fsx:syncpub) | [Go](http://zguide.zeromq.org/go:syncpub) | [Haskell](http://zguide.zeromq.org/hs:syncpub) | [Haxe](http://zguide.zeromq.org/hx:syncpub) | [Java](http://zguide.zeromq.org/java:syncpub) | [Lua](http://zguide.zeromq.org/lua:syncpub) | [Node.js](http://zguide.zeromq.org/js:syncpub) | [Perl](http://zguide.zeromq.org/pl:syncpub) | [PHP](http://zguide.zeromq.org/php:syncpub) | [Python](http://zguide.zeromq.org/py:syncpub) | [Racket](http://zguide.zeromq.org/rkt:syncpub) | [Ruby](http://zguide.zeromq.org/rb:syncpub) | [Scala](http://zguide.zeromq.org/scala:syncpub) | [Tcl](http://zguide.zeromq.org/tcl:syncpub) | [Ada | Basic | Felix | Objective-C | ooc | Q](http://zguide.zeromq.org/main:translate)
 
+And here is the subscriber:
 [syncsub: Synchronized subscriber in C](javascript:;)
-
 
 [C++](http://zguide.zeromq.org/cpp:syncsub) | [C#](http://zguide.zeromq.org/cs:syncsub) | [Clojure](http://zguide.zeromq.org/clj:syncsub) | [CL](http://zguide.zeromq.org/lisp:syncsub) | [Delphi](http://zguide.zeromq.org/dpr:syncsub) | [Erlang](http://zguide.zeromq.org/es:syncsub) | [F#](http://zguide.zeromq.org/fsx:syncsub) | [Go](http://zguide.zeromq.org/go:syncsub) | [Haskell](http://zguide.zeromq.org/hs:syncsub) | [Haxe](http://zguide.zeromq.org/hx:syncsub) | [Java](http://zguide.zeromq.org/java:syncsub) | [Lua](http://zguide.zeromq.org/lua:syncsub) | [Node.js](http://zguide.zeromq.org/js:syncsub) | [Perl](http://zguide.zeromq.org/pl:syncsub) | [PHP](http://zguide.zeromq.org/php:syncsub) | [Python](http://zguide.zeromq.org/py:syncsub) | [Racket](http://zguide.zeromq.org/rkt:syncsub) | [Ruby](http://zguide.zeromq.org/rb:syncsub) | [Scala](http://zguide.zeromq.org/scala:syncsub) | [Tcl](http://zguide.zeromq.org/tcl:syncsub) | [Ada | Basic | Felix | Objective-C | ooc | Q](http://zguide.zeromq.org/main:translate)
 
+这个Bash shell脚本将启动10个订阅者，然后是发布者:
 ```
 echo "Starting subscribers..."
 for ((a=0; a<10; a++)); do
@@ -1355,7 +1316,7 @@ echo "Starting publisher..."
 syncpub
 ```
 
-Which gives us this satisfying output:
+这就得到了令人满意的结果:
 
 ```
 Starting subscribers...
@@ -1367,53 +1328,48 @@ Received 1000000 updates
 Received 1000000 updates
 ```
 
-We can't assume that the SUB connect will be finished by the time the REQ/REP dialog is complete. There are no guarantees that outbound connects will finish in any order whatsoever, if you're using any transport except `inproc`. So, the example does a brute force sleep of one second between subscribing, and sending the REQ/REP synchronization.
+我们不能假设SUB connect将在REQ/REP对话框完成时完成。如果使用除inproc之外的任何传输，则不能保证出站连接将以任何顺序完成。因此，该示例在订阅和发送REQ/REP同步之间强制休眠一秒钟。
 
-A more robust model could be:
+一个更健壮的模型可以是:
 
-- Publisher opens PUB socket and starts sending "Hello" messages (not data).
-- Subscribers connect SUB socket and when they receive a Hello message they tell the publisher via a REQ/REP socket pair.
-- When the publisher has had all the necessary confirmations, it starts to send real data.
+- Publisher打开PUB socket 并开始发送“Hello”消息(而不是数据)。
+- 订阅者连接SUB socket ，当他们收到一条Hello消息时，他们通过 REQ/REP socket pair告诉发布者。
+- 当发布者获得所有必要的确认后，它就开始发送实际数据。
 
+## 零拷贝Zero-Copy
 
+ZeroMQ的消息API允许您直接从应用程序缓冲区发送和接收消息，而不需要复制数据。
+我们称之为零拷贝，它可以在某些应用程序中提高性能。
 
-| [Zero-Copy](http://zguide.zeromq.org/page:all#Zero-Copy) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-48) [next](http://zguide.zeromq.org/page:all#header-50) |
-| -------------------------------------------------------- | ------------------------------------------------------------ |
-|                                                          |                                                              |
+您应该考虑在以高频率发送大内存块(数千字节)的特定情况下使用zero-copy。对于短消息或较低的消息率，使用零拷贝将使您的代码更混乱、更复杂，并且没有可度量的好处。像所有优化一样，当您知道它有帮助时使用它，并在前后进行度量。
 
-ZeroMQ's message API lets you send and receive messages directly from and to application buffers without copying data. We call this *zero-copy*, and it can improve performance in some applications.
-
-You should think about using zero-copy in the specific case where you are sending large blocks of memory (thousands of bytes), at a high frequency. For short messages, or for lower message rates, using zero-copy will make your code messier and more complex with no measurable benefit. Like all optimizations, use this when you know it helps, and *measure*before and after.
-
-To do zero-copy, you use `zmq_msg_init_data()` to create a message that refers to a block of data already allocated with `malloc()` or some other allocator, and then you pass that to `zmq_msg_send()`. When you create the message, you also pass a function that ZeroMQ will call to free the block of data, when it has finished sending the message. This is the simplest example, assuming `buffer` is a block of 1,000 bytes allocated on the heap:
-
+要执行zero-copy，可以使用zmq_msg_init_data()创建一条消息，该消息引用已经用malloc()或其他分配器分配的数据块，然后将其传递给zmq_msg_send()。创建消息时，还传递一个函数，ZeroMQ在发送完消息后将调用该函数释放数据块。这是最简单的例子，假设buffer是一个在堆上分配了1000字节的块:
+```
 void my_free (void *data, void *hint) {
-`    `free (data);
+    free (data);
 }
-*//  Send message from buffer, which we allocate and ZeroMQ will free for us*
+//  Send message from buffer, which we allocate and ZeroMQ will free for us
 zmq_msg_t message;
 zmq_msg_init_data (&message, buffer, 1000, my_free, NULL);
 zmq_msg_send (&message, socket, 0);
+```
+注意，发送消息后不调用zmq_msg_close()—libzmq在实际发送消息后将自动调用zmq_msg_close()。
 
-Note that you don't call `zmq_msg_close()` after sending a message—`libzmq` will do this automatically when it's actually done sending the message.
+没有办法在接收时执行零复制:ZeroMQ提供了一个缓冲区，您可以存储任意长的缓冲区，但是它不会直接将数据写入应用程序缓冲区。
 
-There is no way to do zero-copy on receive: ZeroMQ delivers you a buffer that you can store as long as you wish, but it will not write data directly into application buffers.
-
-On writing, ZeroMQ's multipart messages work nicely together with zero-copy. In traditional messaging, you need to marshal different buffers together into one buffer that you can send. That means copying data. With ZeroMQ, you can send multiple buffers coming from different sources as individual message frames. Send each field as a length-delimited frame. To the application, it looks like a series of send and receive calls. But internally, the multiple parts get written to the network and read back with single system calls, so it's very efficient.
+在编写时，ZeroMQ的多部分消息与zero-copy很好地结合在一起。在传统的消息传递中，需要将不同的缓冲区组合到一个可以发送的缓冲区中。这意味着复制数据。使用ZeroMQ，您可以将来自不同来源的多个缓冲区作为单独的消息帧发送。将每个字段作为长度分隔的帧发送。对于应用程序，它看起来像一系列发送和接收调用。但是在内部，多个部分被写到网络中，并通过单个系统调用进行读取，因此非常高效。
 
 
+## 发布-订阅消息信封Pub-Sub Message Envelopes
 
-| [Pub-Sub Message Envelopes](http://zguide.zeromq.org/page:all#Pub-Sub-Message-Envelopes) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-49) [next](http://zguide.zeromq.org/page:all#header-51) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-In the pub-sub pattern, we can split the key into a separate message frame that we call an *envelope*. If you want to use pub-sub envelopes, make them yourself. It's optional, and in previous pub-sub examples we didn't do this. Using a pub-sub envelope is a little more work for simple cases, but it's cleaner especially for real cases, where the key and the data are naturally separate things.
+在 pub-sub 模式中，我们可以将密钥拆分为一个单独的消息框架，称为信封。如果你想使用pub-sub信封，那就自己做吧。它是可选的，在之前的 pub-sub例子中我们没有这样做。
+对于简单的情况，使用 pub-sub信封要多做一些工作，但是对于实际情况，尤其是键和数据是自然分离的情况，使用它会更简洁。
 
 **Figure 23 - Pub-Sub Envelope with Separate Key**
 
 ![fig23.png](https://github.com/imatix/zguide/raw/master/images/fig23.png)
 
-Subscriptions do a prefix match. That is, they look for "all messages starting with XYZ". The obvious question is: how to delimit keys from data so that the prefix match doesn't accidentally match data. The best answer is to use an envelope because the match won't cross a frame boundary. Here is a minimalist example of how pub-sub envelopes look in code. This publisher sends messages of two types, A and B.
+订阅执行前缀匹配。也就是说，它们查找“所有以XYZ开头的消息”。一个明显的问题是:如何将键与数据分隔开来，以便前缀匹配不会意外匹配数据。最好的答案是使用信封，因为匹配不会跨越框架边界。下面是一个极简示例，展示了 pub-sub信封在代码中的外观。此发布者发送两种类型的消息，A和B。
 
 The envelope holds the message type:
 
@@ -1421,12 +1377,13 @@ The envelope holds the message type:
 
 
 [C++](http://zguide.zeromq.org/cpp:psenvpub) | [C#](http://zguide.zeromq.org/cs:psenvpub) | [Clojure](http://zguide.zeromq.org/clj:psenvpub) | [CL](http://zguide.zeromq.org/lisp:psenvpub) | [Delphi](http://zguide.zeromq.org/dpr:psenvpub) | [Erlang](http://zguide.zeromq.org/es:psenvpub) | [F#](http://zguide.zeromq.org/fsx:psenvpub) | [Go](http://zguide.zeromq.org/go:psenvpub) | [Haskell](http://zguide.zeromq.org/hs:psenvpub) | [Haxe](http://zguide.zeromq.org/hx:psenvpub) | [Java](http://zguide.zeromq.org/java:psenvpub) | [Lua](http://zguide.zeromq.org/lua:psenvpub) | [Node.js](http://zguide.zeromq.org/js:psenvpub) | [Perl](http://zguide.zeromq.org/pl:psenvpub) | [PHP](http://zguide.zeromq.org/php:psenvpub) | [Python](http://zguide.zeromq.org/py:psenvpub) | [Ruby](http://zguide.zeromq.org/rb:psenvpub) | [Scala](http://zguide.zeromq.org/scala:psenvpub) | [Tcl](http://zguide.zeromq.org/tcl:psenvpub) | [Ada | Basic | Felix | Objective-C | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
-
+The subscriber wants only messages of type B:
 [psenvsub: Pub-Sub envelope subscriber in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:psenvsub) | [C#](http://zguide.zeromq.org/cs:psenvsub) | [Clojure](http://zguide.zeromq.org/clj:psenvsub) | [CL](http://zguide.zeromq.org/lisp:psenvsub) | [Delphi](http://zguide.zeromq.org/dpr:psenvsub) | [Erlang](http://zguide.zeromq.org/es:psenvsub) | [F#](http://zguide.zeromq.org/fsx:psenvsub) | [Go](http://zguide.zeromq.org/go:psenvsub) | [Haskell](http://zguide.zeromq.org/hs:psenvsub) | [Haxe](http://zguide.zeromq.org/hx:psenvsub) | [Java](http://zguide.zeromq.org/java:psenvsub) | [Lua](http://zguide.zeromq.org/lua:psenvsub) | [Node.js](http://zguide.zeromq.org/js:psenvsub) | [Perl](http://zguide.zeromq.org/pl:psenvsub) | [PHP](http://zguide.zeromq.org/php:psenvsub) | [Python](http://zguide.zeromq.org/py:psenvsub) | [Ruby](http://zguide.zeromq.org/rb:psenvsub) | [Scala](http://zguide.zeromq.org/scala:psenvsub) | [Tcl](http://zguide.zeromq.org/tcl:psenvsub) | [Ada | Basic | Felix | Objective-C | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
+When you run the two programs, the subscriber should show you this:
 ```
 [B] We would like to see this
 [B] We would like to see this
@@ -1434,7 +1391,7 @@ The envelope holds the message type:
 ...
 ```
 
-This example shows that the subscription filter rejects or accepts the entire multipart message (key plus data). You won't get part of a multipart message, ever. If you subscribe to multiple publishers and you want to know their address so that you can send them data via another socket (and this is a typical use case), create a three-part message.
+此示例显示订阅筛选器拒绝或接受整个多部分消息(键和数据)。您永远不会得到多部分消息的一部分。如果您订阅了多个发布者，并且希望知道它们的地址，以便能够通过另一个socket (这是一个典型的用例)向它们发送数据，那么创建一个由三部分组成的消息。
 
 **Figure 24 - Pub-Sub Envelope with Sender Address**
 
@@ -1442,78 +1399,55 @@ This example shows that the subscription filter rejects or accepts the entire mu
 
 
 
-| [High-Water Marks](http://zguide.zeromq.org/page:all#High-Water-Marks) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-50) [next](http://zguide.zeromq.org/page:all#header-52) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## High-Water Marks
 
-When you can send messages rapidly from process to process, you soon discover that memory is a precious resource, and one that can be trivially filled up. A few seconds of delay somewhere in a process can turn into a backlog that blows up a server unless you understand the problem and take precautions.
+当您可以快速地从一个进程发送消息到另一个进程时，您很快就会发现内存是一种宝贵的资源，并且可以被轻松地填满。流程中某些地方的几秒钟延迟可能会变成积压，导致服务器崩溃，除非您了解问题并采取预防措施。
+问题是这样的:假设您有一个进程A以很高的频率向正在处理它们的进程B发送消息。突然，B变得非常繁忙(垃圾收集、CPU过载等等)，短时间内无法处理消息。对于一些繁重的垃圾收集，可能需要几秒钟的时间，或者如果有更严重的问题，可能需要更长的时间。进程A仍然试图疯狂发送的消息会发生什么情况?有些将位于B的网络缓冲区中。有些将位于以太网线路本身。有些将位于A的网络缓冲区中。其余的会在A的内存中积累，就像A后面的应用程序发送它们一样快。如果不采取一些预防措施，A很容易耗尽内存并崩溃。
+这是消息代理的一个一致的经典问题。更糟糕的是，从表面上看，这是B的错，而B通常是a无法控制的用户编写的应用程序。
+答案是什么?一是把问题往上游推。A从其他地方获取信息。所以告诉这个过程，“停止!”等等。这叫做流量控制。这听起来很有道理，但是如果你在Twitter上发消息呢?你会告诉全世界的人在B行动起来的时候停止发推吗?
 
-The problem is this: imagine you have process A sending messages at high frequency to process B, which is processing them. Suddenly B gets very busy (garbage collection, CPU overload, whatever), and can't process the messages for a short period. It could be a few seconds for some heavy garbage collection, or it could be much longer, if there's a more serious problem. What happens to the messages that process A is still trying to send frantically? Some will sit in B's network buffers. Some will sit on the Ethernet wire itself. Some will sit in A's network buffers. And the rest will accumulate in A's memory, as rapidly as the application behind A sends them. If you don't take some precaution, A can easily run out of memory and crash.
-
-It is a consistent, classic problem with message brokers. What makes it hurt more is that it's B's fault, superficially, and B is typically a user-written application which A has no control over.
-
-What are the answers? One is to pass the problem upstream. A is getting the messages from somewhere else. So tell that process, "Stop!" And so on. This is called *flow control*. It sounds plausible, but what if you're sending out a Twitter feed? Do you tell the whole world to stop tweeting while B gets its act together?
-
-Flow control works in some cases, but not in others. The transport layer can't tell the application layer to "stop" any more than a subway system can tell a large business, "please keep your staff at work for another half an hour. I'm too busy". The answer for messaging is to set limits on the size of buffers, and then when we reach those limits, to take some sensible action. In some cases (not for a subway system, though), the answer is to throw away messages. In others, the best strategy is to wait.
-
-ZeroMQ uses the concept of HWM (high-water mark) to define the capacity of its internal pipes. Each connection out of a socket or into a socket has its own pipe, and HWM for sending, and/or receiving, depending on the socket type. Some sockets (PUB, PUSH) only have send buffers. Some (SUB, PULL, REQ, REP) only have receive buffers. Some (DEALER, ROUTER, PAIR) have both send and receive buffers.
-
-In ZeroMQ v2.x, the HWM was infinite by default. This was easy but also typically fatal for high-volume publishers. In ZeroMQ v3.x, it's set to 1,000 by default, which is more sensible. If you're still using ZeroMQ v2.x, you should always set a HWM on your sockets, be it 1,000 to match ZeroMQ v3.x or another figure that takes into account your message sizes and expected subscriber performance.
-
-When your socket reaches its HWM, it will either block or drop data depending on the socket type. PUB and ROUTER sockets will drop data if they reach their HWM, while other socket types will block. Over the `inproc` transport, the sender and receiver share the same buffers, so the real HWM is the sum of the HWM set by both sides.
-
-Lastly, the HWMs are not exact; while you may get *up to* 1,000 messages by default, the real buffer size may be much lower (as little as half), due to the way `libzmq` implements its queues.
+流程控制在某些情况下有效，但在其他情况下无效。运输层不能告诉应用层“停止”，就像地铁系统不能告诉大型企业“请让您的员工再工作半个小时”一样。我太忙了”。消息传递的解决方案是设置缓冲区大小的限制，然后当达到这些限制时，采取一些明智的行动。在某些情况下(不是地铁系统)，答案是扔掉信息。在另一些国家，最好的策略是等待。
+ZeroMQ使用HWM(高水位)的概念来定义其内部管道的容量。每个socket 外或socket 内的连接都有自己的管道和用于发送和/或接收的HWM，这取决于socket 类型。一些socket (PUB, PUSH)只有发送缓冲区。有些(SUB、PULL、REQ、REP)只有接收缓冲区。一些(DEALER, ROUTER, PAIR)有发送和接收缓冲区。
+In ZeroMQ v2.x, HWM默认为无穷大。这很容易做到，但对于高容量publishers来说，通常也是致命的。In ZeroMQ v3.x,默认设置为1000，这样更合理。如果你还在用ZeroMQ v2.x，你应该总是在你的socket 上设置一个HWM，设置成1000或另一个考虑您的信息大小和预期的用户性能的数字来匹配ZeroMQ v3.x。
+当socket 到达其HWM时，它将根据socket 类型阻塞或删除数据。如果PUB和ROUTER socket 到达它们的HWM，它们将丢弃数据，而其他 socket 类型将阻塞。在inproc传输中，发送方和接收方共享相同的缓冲区，因此实际的HWM是双方设置的HWM的和。最后，HWMs并不精确;由于libzmq实现其队列的方式，默认情况下最多可以获得1,000条消息，但实际缓冲区大小可能要小得多(只有一半)。
 
 
 
-| [Missing Message Problem Solver](http://zguide.zeromq.org/page:all#Missing-Message-Problem-Solver) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-51) [next](http://zguide.zeromq.org/page:all#header-53) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-As you build applications with ZeroMQ, you will come across this problem more than once: losing messages that you expect to receive. We have put together a diagram that walks through the most common causes for this.
+## 缺少消息问题的解决者（解决方式）Missing Message Problem Solver
+在使用ZeroMQ构建应用程序时，您将不止一次地遇到这个问题:丢失预期接收到的消息。
+我们已经整理了一个图表，介绍了造成这种情况的最常见原因。
 
 **Figure 25 - Missing Message Problem Solver**
 
 ![fig25.png](https://github.com/imatix/zguide/raw/master/images/fig25.png)
 
-Here's a summary of what the graphic says:
+下面是图表的摘要:
 
-- On SUB sockets, set a subscription using `zmq_setsockopt()` with `ZMQ_SUBSCRIBE`, or you won't get messages. Because you subscribe to messages by prefix, if you subscribe to "" (an empty subscription), you will get everything.
-
-- If you start the SUB socket (i.e., establish a connection to a PUB socket) *after* the PUB socket has started sending out data, you will lose whatever it published before the connection was made. If this is a problem, set up your architecture so the SUB socket starts first, then the PUB socket starts publishing.
-
-- Even if you synchronize a SUB and PUB socket, you may still lose messages. It's due to the fact that internal queues aren't created until a connection is actually created. If you can switch the bind/connect direction so the SUB socket binds, and the PUB socket connects, you may find it works more as you'd expect.
-
-- If you're using REP and REQ sockets, and you're not sticking to the synchronous send/recv/send/recv order, ZeroMQ will report errors, which you might ignore. Then, it would look like you're losing messages. If you use REQ or REP, stick to the send/recv order, and always, in real code, check for errors on ZeroMQ calls.
-
-- If you're using PUSH sockets, you'll find that the first PULL socket to connect will grab an unfair share of messages. The accurate rotation of messages only happens when all PULL sockets are successfully connected, which can take some milliseconds. As an alternative to PUSH/PULL, for lower data rates, consider using ROUTER/DEALER and the load balancing pattern.
-
-- If you're sharing sockets across threads, don't. It will lead to random weirdness, and crashes.
-
-- If you're using `inproc`, make sure both sockets are in the same context. Otherwise the connecting side will in fact fail. Also, bind first, then connect. `inproc` is not a disconnected transport like `tcp`.
-
-- If you're using ROUTER sockets, it's remarkably easy to lose messages by accident, by sending malformed identity frames (or forgetting to send an identity frame). In general setting the `ZMQ_ROUTER_MANDATORY` option on ROUTER sockets is a good idea, but do also check the return code on every send call.
-
-- Lastly, if you really can't figure out what's going wrong, make a *minimal* test case that reproduces the problem, and ask for help from the ZeroMQ community.
+- 在 SUB sockets上，使用zmq_setsockopt()和ZMQ_SUBSCRIBE设置订阅，否则将不会收到消息。因为您通过前缀订阅消息，如果您订阅“”(空订阅)，您将获得所有内容。
+- 如果您启动 SUB sockets(即在PUB socket开始发送数据之后，您将丢失连接之前发布的任何内容。如果这是一个问题，请设置您的体系结构，以便首先启动 SUB sockets，然后PUB socket开始发布。
+- 即使同步了 SUB 和 PUB socket，仍然可能丢失消息。这是因为在实际创建连接之前不会创建内部队列。**如果您可以切换绑定/连接方向，以便 SUB socket 绑定，而PUB socket连接，您可能会发现它的工作方式与您所期望的一样。**
+- 如果您使用REP和REQsockets，并且没有坚持同步发送/recv/send/recv命令，ZeroMQ将报告错误，您可能会忽略这些错误。然后，看起来就像是你在丢失信息。如果您使用REQ或REP，请坚持send/recv顺序，并且始终在实际代码中检查ZeroMQ调用中的错误。
+- 如果使用 PUSH sockets，您会发现第一个连接的PULL socket 将获取不公平的消息共享。只有在成功连接所有PULL套接字时才会发生准确的消息轮换，这可能需要几毫秒的时间。作为PUSH / PULL的替代方案，对于较低的数据速率，请考虑使用ROUTER / DEALER和负载平衡模式。
+- 如果您正在跨线程共享sockets ，请不要这样做。这将导致随机的怪异，并崩溃。
+- 如果使用inproc，请确保两个socket位于相同的context中。否则，连接端实际上会失败。同样，先绑定，然后连接。inproc不像tcp那样是一个断开连接的传输。
+- 如果您正在使用ROUTER sockets，通过发送不正确的身份帧(或忘记发送身份帧)，很容易意外丢失消息。通常，在 ROUTER sockets 上设置ZMQ_ROUTER_MANDATORY选项是一个好主意，但是也要在每次发送调用时检查返回代码。
+- 最后，如果您真的不知道哪里出了问题，那么就创建一个最小的测试用例来重现问题，并向ZeroMQ社区寻求帮助。
 
 
 
-| [Chapter 3 - Advanced Request-Reply Patterns](http://zguide.zeromq.org/page:all#Chapter-Advanced-Request-Reply-Patterns) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-52) [next](http://zguide.zeromq.org/page:all#header-54) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+# Chapter 3 -高级 Advanced Request-Reply Patterns
 
-In [Chapter 2 - Sockets and Patterns](http://zguide.zeromq.org/page:all#sockets-and-patterns) we worked through the basics of using ZeroMQ by developing a series of small applications, each time exploring new aspects of ZeroMQ. We'll continue this approach in this chapter as we explore advanced patterns built on top of ZeroMQ's core request-reply pattern.
+在第2章-Sockets and Patterns 中，我们通过开发一系列小型应用程序来学习使用ZeroMQ的基础知识，每次都要探索ZeroMQ的新方面。在本章中，我们将继续使用这种方法，探索构建在ZeroMQ核心请求-应答模式之上的高级模式。
 
-We'll cover:
-
-- How the request-reply mechanisms work
-- How to combine REQ, REP, DEALER, and ROUTER sockets
-- How ROUTER sockets work, in detail
-- The load balancing pattern
-- Building a simple load balancing message broker
-- Designing a high-level API for ZeroMQ
-- Building an asynchronous request-reply server
-- A detailed inter-broker routing example
+我们将讨论:
+- 请求-应答机制如何工作
+- 如何组合REQ、REP、DEALER和 ROUTER sockets
+- ROUTER sockets如何工作，详细的讨论
+- 负载平衡模式
+- 构建一个简单的负载平衡消息代理
+- 为ZeroMQ设计一个高级API
+- 构建异步请求-应答服务器
+- 一个详细的代理间路由示例
 
 
 
