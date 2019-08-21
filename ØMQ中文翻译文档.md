@@ -1673,9 +1673,10 @@ ZeroMQ中的标识概念特别指ROUTER sockets ，以及它们如何标识与�
 - 对等应用程序在绑定或连接之前设置其对等socket (DEALER 或REQ)的ZMQ_IDENTITY选项。
 - 通常，对等点然后连接到已经绑定的 ROUTER socket。但是 ROUTER也可以连接到对等点。
 - 在连接时，对等socket 告诉ROUTER socket，“请为这个连接使用这个标识”。
-如果对等socket 没有这样说，ROUTER就为连接生成它通常的任意随机标识。
-ROUTER socket现在将此逻辑地址提供给应用程序，作为来自该对等点的任何消息的前缀标识帧。
-ROUTER 还期望逻辑地址作为任何传出消息的前缀标识帧。
+- 如果对等socket 没有这样说，ROUTER就为连接生成它通常的任意随机标识。
+- ROUTER socket现在将此逻辑地址提供给应用程序，作为来自该对等点的任何消息的前缀标识帧。
+- ROUTER 还期望逻辑地址作为任何传出消息的前缀标识帧。
+
 下面是连接到ROUTER socket的两个对等点的简单例子，其中一个附加了一个逻辑地址“PEER2”:
 
 [identity: Identity check in C](javascript:;)
@@ -1683,6 +1684,7 @@ ROUTER 还期望逻辑地址作为任何传出消息的前缀标识帧。
 
 [C++](http://zguide.zeromq.org/cpp:identity) | [C#](http://zguide.zeromq.org/cs:identity) | [Clojure](http://zguide.zeromq.org/clj:identity) | [CL](http://zguide.zeromq.org/lisp:identity) | [Delphi](http://zguide.zeromq.org/dpr:identity) | [Erlang](http://zguide.zeromq.org/es:identity) | [F#](http://zguide.zeromq.org/fsx:identity) | [Go](http://zguide.zeromq.org/go:identity) | [Haskell](http://zguide.zeromq.org/hs:identity) | [Haxe](http://zguide.zeromq.org/hx:identity) | [Java](http://zguide.zeromq.org/java:identity) | [Lua](http://zguide.zeromq.org/lua:identity) | [Node.js](http://zguide.zeromq.org/js:identity) | [Perl](http://zguide.zeromq.org/pl:identity) | [PHP](http://zguide.zeromq.org/php:identity) | [Python](http://zguide.zeromq.org/py:identity) | [Q](http://zguide.zeromq.org/q:identity) | [Ruby](http://zguide.zeromq.org/rb:identity) | [Scala](http://zguide.zeromq.org/scala:identity) | [Tcl](http://zguide.zeromq.org/tcl:identity) | [Ada | Basic | Felix | Objective-C | ooc | Racket](http://zguide.zeromq.org/main:translate)
 
+Here is what the program prints:
 ```
 ----------------------------------------
 [005] 006B8B4567
@@ -1696,50 +1698,44 @@ ROUTER 还期望逻辑地址作为任何传出消息的前缀标识帧。
 
 
 
-| [ROUTER Error Handling](http://zguide.zeromq.org/page:all#ROUTER-Error-Handling) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-68) [next](http://zguide.zeromq.org/page:all#header-70) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### 的错误处理 ROUTER Error Handling
 
-ROUTER sockets do have a somewhat brutal way of dealing with messages they can't send anywhere: they drop them silently. It's an attitude that makes sense in working code, but it makes debugging hard. The "send identity as first frame" approach is tricky enough that we often get this wrong when we're learning, and the ROUTER's stony silence when we mess up isn't very constructive.
+ROUTER sockets确实有一种处理无法发送到任何地方的消息的方法:它们无声地丢弃这些消息。
+这种态度在工作代码中是有意义的，但它使调试变得困难。“发送标识为第一帧”的方法非常棘手，以至于我们在学习时经常会出错，而ROUTER在我们出错时的死寂也不是很有建设性。
 
-Since ZeroMQ v3.2 there's a socket option you can set to catch this error: `ZMQ_ROUTER_MANDATORY`. Set that on the ROUTER socket and then when you provide an unroutable identity on a send call, the socket will signal an `EHOSTUNREACH` error.
-
-
-
-| [The Load Balancing Pattern](http://zguide.zeromq.org/page:all#The-Load-Balancing-Pattern) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-69) [next](http://zguide.zeromq.org/page:all#header-71) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-Now let's look at some code. We'll see how to connect a ROUTER socket to a REQ socket, and then to a DEALER socket. These two examples follow the same logic, which is a *load balancing* pattern. This pattern is our first exposure to using the ROUTER socket for deliberate routing, rather than simply acting as a reply channel.
-
-The load balancing pattern is very common and we'll see it several times in this book. It solves the main problem with simple round robin routing (as PUSH and DEALER offer) which is that round robin becomes inefficient if tasks do not all roughly take the same time.
-
-It's the post office analogy. If you have one queue per counter, and you have some people buying stamps (a fast, simple transaction), and some people opening new accounts (a very slow transaction), then you will find stamp buyers getting unfairly stuck in queues. Just as in a post office, if your messaging architecture is unfair, people will get annoyed.
-
-The solution in the post office is to create a single queue so that even if one or two counters get stuck with slow work, other counters will continue to serve clients on a first-come, first-serve basis.
-
-One reason PUSH and DEALER use the simplistic approach is sheer performance. If you arrive in any major US airport, you'll find long queues of people waiting at immigration. The border patrol officials will send people in advance to queue up at each counter, rather than using a single queue. Having people walk fifty yards in advance saves a minute or two per passenger. And because every passport check takes roughly the same time, it's more or less fair. This is the strategy for PUSH and DEALER: send work loads ahead of time so that there is less travel distance.
-
-This is a recurring theme with ZeroMQ: the world's problems are diverse and you can benefit from solving different problems each in the right way. The airport isn't the post office and one size fits no one, really well.
-
-Let's return to the scenario of a worker (DEALER or REQ) connected to a broker (ROUTER). The broker has to know when the worker is ready, and keep a list of workers so that it can take the *least recently used* worker each time.
-
-The solution is really simple, in fact: workers send a "ready" message when they start, and after they finish each task. The broker reads these messages one-by-one. Each time it reads a message, it is from the last used worker. And because we're using a ROUTER socket, we get an identity that we can then use to send a task back to the worker.
-
-It's a twist on request-reply because the task is sent with the reply, and any response for the task is sent as a new request. The following code examples should make it clearer.
+因为ZeroMQ v3.2中有一个socket选项可以设置为捕捉这个错误:**ZMQ_ROUTER_MANDATORY。**将其设置在ROUTER socket 上，然后当您在发送调用上提供不可路由的标识时，socket将发出EHOSTUNREACH错误的信号。
 
 
 
-| [ROUTER Broker and REQ Workers](http://zguide.zeromq.org/page:all#ROUTER-Broker-and-REQ-Workers) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-70) [next](http://zguide.zeromq.org/page:all#header-72) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 负载平衡模式The Load Balancing Pattern
 
-Here is an example of the load balancing pattern using a ROUTER broker talking to a set of REQ workers:
+现在让我们看一些代码。我们将看到如何将ROUTER socket连接到 REQ socket，然后连接到DEALER socket。这两个示例遵循相同的逻辑，即负载平衡模式。这种模式是我们第一次公开使用 ROUTER socket进行有意路由，而不是简单地充当应答通道。
+
+负载平衡模式非常常见，我们将在本书中多次看到它。它解决了简单的循环式路由(如 PUSH和DEALER提供)的主要问题，即如果任务没有大致占用相同的时间，那么循环式路由就会变得低效。
+
+这是邮局的比喻。如果每个柜台都有一个队列，有些人购买邮票(快速、简单的交易)，有些人开立新帐户(非常慢的交易)，那么您将发现邮票购买者被不公平地困在队列中。就像在邮局一样，如果您的消息传递体系结构是不公平的，人们会感到恼火。
+
+邮局的解决方案是创建一个队列，这样即使一个或两个柜台工作缓慢，其他柜台将继续以先到先得的方式为客户服务。
+
+PUSH和DEALER使用这种简单方法的一个原因是纯粹的性能。如果你到达美国任何一个主要机场，你会发现移民处排着长队。边境巡逻官员将提前派人在每个柜台排队，而不是使用单一队列。让人们提前走50码可以为每位乘客节省一到两分钟。由于每次护照检查的时间大致相同，所以或多或少是公平的。这是PUSH和DEALER的策略:提前发送工作负载，这样就有更少的旅行距离。
+
+这是ZeroMQ反复出现的主题:世界上的问题是多种多样的，用正确的方法解决不同的问题可以让你受益。机场不是邮局，而且没有一个尺寸适合任何人，真的很好。
+让我们回到一个worker (DEALER 或者 REQ)连接到一个broker (ROUTER)的场景。broker必须知道worker什么时候准备好了，并保存一个workers列表，以便每次可以使用最近最少使用的工人。
+
+事实上，解决方案非常简单:工作人员在开始和完成每个任务后都会发送一条“ready”消息。broker逐个读取这些消息。每次读取一条消息时，它都是从最后一个使用的worker中读取的。因为我们使用的是ROUTER socket，我们得到一个标识，然后我们可以用它把一个任务发送回worker。
+这是request-reply的一个曲解，因为任务与应答一起发送，任务的任何响应都作为一个新请求发送。下面的代码示例应该更清楚。
+
+
+
+### ROUTER Broker and REQ Workers
+下面是一个负载平衡模式的例子，使用ROUTER broker与一组REQ workers对话:
 
 [rtreq: ROUTER-to-REQ in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:rtreq) | [C#](http://zguide.zeromq.org/cs:rtreq) | [Clojure](http://zguide.zeromq.org/clj:rtreq) | [CL](http://zguide.zeromq.org/lisp:rtreq) | [Delphi](http://zguide.zeromq.org/dpr:rtreq) | [Erlang](http://zguide.zeromq.org/es:rtreq) | [F#](http://zguide.zeromq.org/fsx:rtreq) | [Go](http://zguide.zeromq.org/go:rtreq) | [Haskell](http://zguide.zeromq.org/hs:rtreq) | [Haxe](http://zguide.zeromq.org/hx:rtreq) | [Java](http://zguide.zeromq.org/java:rtreq) | [Lua](http://zguide.zeromq.org/lua:rtreq) | [Node.js](http://zguide.zeromq.org/js:rtreq) | [Perl](http://zguide.zeromq.org/pl:rtreq) | [PHP](http://zguide.zeromq.org/php:rtreq) | [Python](http://zguide.zeromq.org/py:rtreq) | [Ruby](http://zguide.zeromq.org/rb:rtreq) | [Scala](http://zguide.zeromq.org/scala:rtreq) | [Tcl](http://zguide.zeromq.org/tcl:rtreq) | [Ada | Basic | Felix | Objective-C | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
+
+该示例运行5秒，然后每个工作人员打印他们处理了多少任务。如果路由成功了，我们希望工作得到公平分配:
 
 ```
 Completed: 20 tasks
@@ -1754,7 +1750,7 @@ Completed: 25 tasks
 Completed: 19 tasks
 ```
 
-To talk to the workers in this example, we have to create a REQ-friendly envelope consisting of an identity plus an empty envelope delimiter frame.
+要与本例中的工作人员对话，我们必须创建一个对 REQ-friendly的信封，它由一个标识符和一个空信封分隔符框架组成。
 
 **Figure 31 - Routing Envelope for REQ**
 
@@ -1762,57 +1758,55 @@ To talk to the workers in this example, we have to create a REQ-friendly envelop
 
 
 
-| [ROUTER Broker and DEALER Workers](http://zguide.zeromq.org/page:all#ROUTER-Broker-and-DEALER-Workers) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-71) [next](http://zguide.zeromq.org/page:all#header-73) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### ROUTER Broker and DEALER Workers
 
-Anywhere you can use REQ, you can use DEALER. There are two specific differences:
+任何地方你可以使用REQ，你就可以使用DEALER。有两个具体的区别:
 
-- The REQ socket always sends an empty delimiter frame before any data frames; the DEALER does not.
-- The REQ socket will send only one message before it receives a reply; the DEALER is fully asynchronous.
+- REQ socket总是在任何数据帧之前发送一个空的分隔符帧;DEALER没有。
+- REQ socket在收到回复之前只发送一条消息;DEALER是完全异步的。
 
-The synchronous versus asynchronous behavior has no effect on our example because we're doing strict request-reply. It is more relevant when we address recovering from failures, which we'll come to in [Reliable Request-Reply Patterns](http://zguide.zeromq.org/page:all#reliable-request-reply).
-
-Now let's look at exactly the same example but with the REQ socket replaced by a DEALER socket:
+同步和异步行为对我们的示例没有影响，因为我们正在执行严格的请求-应答。当我们处理从失败中恢复时，它更相关，我们将在 Reliable Request-Reply Patterns中讨论这个问题。现在让我们看看完全相同的例子，但与REQ socket替换为一个DEALER socket:
 
 [rtdealer: ROUTER-to-DEALER in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:rtdealer) | [C#](http://zguide.zeromq.org/cs:rtdealer) | [Clojure](http://zguide.zeromq.org/clj:rtdealer) | [CL](http://zguide.zeromq.org/lisp:rtdealer) | [Delphi](http://zguide.zeromq.org/dpr:rtdealer) | [Erlang](http://zguide.zeromq.org/es:rtdealer) | [F#](http://zguide.zeromq.org/fsx:rtdealer) | [Go](http://zguide.zeromq.org/go:rtdealer) | [Haskell](http://zguide.zeromq.org/hs:rtdealer) | [Haxe](http://zguide.zeromq.org/hx:rtdealer) | [Java](http://zguide.zeromq.org/java:rtdealer) | [Lua](http://zguide.zeromq.org/lua:rtdealer) | [Node.js](http://zguide.zeromq.org/js:rtdealer) | [Perl](http://zguide.zeromq.org/pl:rtdealer) | [PHP](http://zguide.zeromq.org/php:rtdealer) | [Python](http://zguide.zeromq.org/py:rtdealer) | [Ruby](http://zguide.zeromq.org/rb:rtdealer) | [Scala](http://zguide.zeromq.org/scala:rtdealer) | [Tcl](http://zguide.zeromq.org/tcl:rtdealer) | [Ada | Basic | Felix | Objective-C | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
-However, remember the reason for that empty delimiter frame: it's to allow multihop extended requests that terminate in a REP socket, which uses that delimiter to split off the reply envelope so it can hand the data frames to its application.
+代码几乎是相同的，除了worker使用一个DEALER socket，并读写数据帧之前的空帧。
+当我想要保持与REQ worker的兼容性时，我使用这种方法。
 
-If we never need to pass the message along to a REP socket, we can simply drop the empty delimiter frame at both sides, which makes things simpler. This is usually the design I use for pure DEALER to ROUTER protocols.
+但是，请记住空分隔符帧的原因:它允许多跳扩展请求在 REP socket中终止， REP socket使用该分隔符分隔应答信封，以便将数据帧传递给应用程序。
+
+如果我们从来不需要将消息传递给REP socket，我们可以简单地在两边删除空分隔符框架，这使事情变得更简单。这通常是我为纯DEALER to ROUTER协议使用的设计。
 
 
 
-| [A Load Balancing Message Broker](http://zguide.zeromq.org/page:all#A-Load-Balancing-Message-Broker) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-72) [next](http://zguide.zeromq.org/page:all#header-74) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 负载平衡消息代理 A Load Balancing Message Broker
 
-The previous example is half-complete. It can manage a set of workers with dummy requests and replies, but it has no way to talk to clients. If we add a second *frontend*ROUTER socket that accepts client requests, and turn our example into a proxy that can switch messages from frontend to backend, we get a useful and reusable tiny load balancing message broker.
+前面的示例只完成了一半。它可以用虚拟的请求和响应来管理一组工人，但是它没有办法与clients交谈。如果我们添加第二个接收clients请求的frontend ROUTER socket，并将我们的示例转换为一个可以将消息从前端切换到后端的代理，我们将得到一个有用的、可重用的小型负载平衡消息代理。
 
 **Figure 32 - Load Balancing Broker**
 
 ![fig32.png](https://github.com/imatix/zguide/raw/master/images/fig32.png)
 
-This broker does the following:
+该代理执行以下操作:
+- 接受来自一组clients的连接。
+- 接受来自一组workers的连接。
+- 接受来自clients的请求，并将这些请求保存在一个队列中。
+- 使用负载平衡模式将这些请求发送给workers 。
+- 收到workers的回复。
+- 将这些响应发送回原始请求client。
 
-- Accepts connections from a set of clients.
-- Accepts connections from a set of workers.
-- Accepts requests from clients and holds these in a single queue.
-- Sends these requests to workers using the load balancing pattern.
-- Receives replies back from workers.
-- Sends these replies back to the original requesting client.
-
-The broker code is fairly long, but worth understanding:
+理代码相当长，但值得理解:
 
 [lbbroker: Load balancing broker in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:lbbroker) | [C#](http://zguide.zeromq.org/cs:lbbroker) | [Clojure](http://zguide.zeromq.org/clj:lbbroker) | [CL](http://zguide.zeromq.org/lisp:lbbroker) | [Delphi](http://zguide.zeromq.org/dpr:lbbroker) | [Erlang](http://zguide.zeromq.org/es:lbbroker) | [F#](http://zguide.zeromq.org/fsx:lbbroker) | [Go](http://zguide.zeromq.org/go:lbbroker) | [Haskell](http://zguide.zeromq.org/hs:lbbroker) | [Haxe](http://zguide.zeromq.org/hx:lbbroker) | [Java](http://zguide.zeromq.org/java:lbbroker) | [Lua](http://zguide.zeromq.org/lua:lbbroker) | [Node.js](http://zguide.zeromq.org/js:lbbroker) | [Perl](http://zguide.zeromq.org/pl:lbbroker) | [PHP](http://zguide.zeromq.org/php:lbbroker) | [Python](http://zguide.zeromq.org/py:lbbroker) | [Ruby](http://zguide.zeromq.org/rb:lbbroker) | [Scala](http://zguide.zeromq.org/scala:lbbroker) | [Tcl](http://zguide.zeromq.org/tcl:lbbroker) | [Ada | Basic | Felix | Objective-C | ooc | Q | Racket](http://zguide.zeromq.org/main:translate)
 
-Let's walk through a full request-reply chain from client to worker and back. In this code we set the identity of client and worker sockets to make it easier to trace the message frames. In reality, we'd allow the ROUTER sockets to invent identities for connections. Let's assume the client's identity is "CLIENT" and the worker's identity is "WORKER". The client application sends a single frame containing "Hello".
+这个程序最困难的部分是(a)每个socket 读取和写入的信封，以及(b)负载平衡算法。我们将依次从消息信封格式开始。
+
+让我们遍历一个完整的请求-响应链，从client 到worker，然后返回。在这段代码中，我们设置了client 和worker sockets 的标识，以便更容易地跟踪消息帧。实际上，我们允许 ROUTER sockets为连接创建身份。假设客户机的标识是“client”，而worker的标识是“worker”。客户机应用程序发送一个包含“Hello”的帧。
 
 **Figure 33 - Message that Client Sends**
 
@@ -7682,139 +7676,107 @@ Note that you don't request a specific port number; IANA will assign you one. It
 
 
 
-| [Chapter 8 - A Framework for Distributed Computing](http://zguide.zeromq.org/page:all#Chapter-A-Framework-for-Distributed-Computing) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-229) [next](http://zguide.zeromq.org/page:all#header-231) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+# Chapter 8 -分布式计算框架 A Framework for Distributed Computing
 
-We've gone though a journey of understanding ZeroMQ in its many aspects. By now you may have started to build your own products using the techniques I explained, as well as others you've figured out yourself. You will start to face questions about how to make these products work in the real world.
+我们经历了理解ZeroMQ的许多方面的旅程。到目前为止，您可能已经开始使用我介绍的技术以及您自己发现的其他技术来构建自己的产品。您将开始面对如何使这些产品在现实世界中工作的问题。
 
-But what is that "real world"? I'll argue that it is becoming a world of ever increasing numbers of moving pieces. Some people use the phrase the "Internet of Things", suggesting that we'll see a new category of devices that are more numerous but also more stupid than our current smart phones, tablets, laptops, and servers. However, I don't think the data points this way at all. Yes, there are more and more devices, but they're not stupid at all. They're smart and powerful and getting more so all the time.
+但什么是“真实世界”呢?我想说的是，它正在成为一个由越来越多的移动部件组成的世界。有些人使用“物联网”这个词，这意味着我们将看到一个新的设备类别，它比我们目前的智能手机、平板电脑、笔记本电脑和服务器数量更多，但也更愚蠢。然而，我不认为数据是这样的。是的，有越来越多的设备，但它们一点也不傻。他们聪明、强大，而且越来越强大。
 
-The mechanism at work is something I call "Cost Gravity" and it has the effect of reducing the cost of technology by half every 18-24 months. Put another way, our global computing capacity doubles every two years, over and over and over. The future is filled with trillions of devices that are fully powerful multi-core computers: they don't run a cut-down "operating system for things" but full operating systems and full applications.
+我把这种机制称为“成本引力”，它的作用是每18到24个月将技术成本降低一半。换句话说，我们的全球计算能力每两年翻一番，一次又一次。未来充满了数万亿的设备，它们都是功能强大的多核计算机:它们运行的不是精简版的“操作系统”，而是完整的操作系统和应用程序。
 
-And this is the world we're targeting with ZeroMQ. When we talk of "scale", we don't mean hundreds of computers, or even thousands. Think of clouds of tiny smart and perhaps self-replicating machines surrounding every person, filling every space, covering every wall, filling the cracks and eventually, becoming so much a part of us that we get them before birth and they follow us to death.
+这就是我们以ZeroMQ为目标的世界。当我们谈到“规模”时，我们指的不是数百台计算机，甚至数千台。想象一下，每一个人的周围都环绕着微型智能机器，它们也许还能自我复制，填补每一个空间，覆盖每一堵墙，填补每一道裂缝，最终，它们成为我们的一部分，以至于我们在出生前就拥有了它们，而它们却随着我们走向死亡。
 
-These clouds of tiny machines talk to each other, all the time, over short-range wireless links using the Internet Protocol. They create mesh networks, pass information and tasks around like nervous signals. They augment our memory, vision, every aspect of our communications, and physical functions. And it's ZeroMQ that powers their conversations and events and exchanges of work and information.
+这些由微型机器组成的云，通过使用互联网协议的短程无线连接，一直在相互通信。它们创造网状网络，像神经信号一样传递信息和任务。它们增强了我们的记忆力、视觉、我们交流的方方面面以及身体机能。正是ZeroMQ为他们的对话、活动以及工作和信息的交流提供了动力。
 
-Now, to make even a thin imitation of this come true today, we need to solve a set of technical problems. These include: How do peers discover each other? How do they talk to existing networks like the Web? How do they protect the information they carry? How do we track and monitor them, to get some idea of what they're doing? Then we need to do what most engineers forget about: package this solution into a framework that is dead easy for ordinary developers to use.
+现在，要想在今天实现这一点，我们需要解决一系列技术问题。这些问题包括:同龄人如何发现彼此?它们如何与现有的网络(如Web)通信?他们如何保护自己携带的信息?我们如何跟踪和监控他们，了解他们在做什么?然后，我们需要做大多数工程师忘记的事情:将这个解决方案打包到一个普通开发人员非常容易使用的框架中。
 
-This is what we'll attempt in this chapter: to build a framework for distributed applications as an API, protocols, and implementations. It's not a small challenge but I've claimed often that ZeroMQ makes such problems simple, so let's see if that's still true.
+这就是我们在本章将要尝试的:为分布式应用程序构建一个作为API、协议和实现的框架。这不是一个小挑战，但我经常说ZeroMQ使这些问题变得简单，所以让我们看看这是否仍然正确。
 
-We'll cover:
-
-- Requirements for distributed computing
-- The pros and cons of WiFi for proximity networking
-- Discovery using UDP and TCP
-- A message-based API
-- Creating a new open source project
-- Peer-to-peer connectivity (the Harmony pattern)
-- Tracking peer presence and disappearance
-- Group messaging without central coordination
-- Large-scale testing and simulation
-- Dealing with high-water marks and blocked peers
-- Distributed logging and monitoring
+我们将讨论:
+- 分布式计算的需求
+- 近距离网络WiFi的优点和缺点
+- 使用UDP和TCP发现
+- 基于消息的API
+- 创建一个新的开源项目
+- 对等连接(和谐模式)
+- 跟踪同伴的出现和消失
+- 没有中央协调的组消息传递
+- 大规模测试与模拟
+- 处理高水位和同行受阻
+- 分布式记录和监控
 
 
 
-| [Design for The Real World](http://zguide.zeromq.org/page:all#Design-for-The-Real-World) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-230) [next](http://zguide.zeromq.org/page:all#header-232) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## Design for The Real World
 
-Whether we're connecting a roomful of mobile devices over WiFi or a cluster of virtual boxes over simulated Ethernet, we will hit the same kinds of problems. These are:
+无论是通过WiFi连接一屋子的移动设备，还是通过模拟以太网连接一群虚拟的盒子，我们都会遇到同样的问题。它们是:
 
-- *Discovery*: how do we learn about other nodes on the network? Do we use a discovery service, centralized mediation, or some kind of broadcast beacon?
+- 发现:我们如何了解网络上的其他节点?我们是使用发现服务、集中中介还是某种广播信标?
+- 存在:我们如何跟踪其他节点何时出现和消失?我们是否使用某种中央注册服务，或心跳或信标?
+- 连接性:我们如何将一个节点连接到另一个节点?我们是使用本地网络、广域网络，还是使用中央消息代理进行转发?
+- 点到点消息传递:如何将消息从一个节点发送到另一个节点?我们是将其发送到节点的网络地址，还是通过集中的消息代理使用一些间接寻址?
+- 组消息传递:如何将消息从一个节点发送到其他节点组?我们是通过集中的消息代理工作，还是使用像ZeroMQ这样的pub-sub模型?
+- 测试和模拟:我们如何模拟大量节点，以便正确地测试性能?我们是必须购买24台Android平板电脑，还是可以使用纯软件模拟?
+- 分布式日志:我们如何跟踪这个节点云，以便检测性能问题和故障?我们是创建一个主日志服务，还是允许每个设备记录它周围的世界?
+- 内容分发:如何将内容从一个节点发送到另一个节点?我们是使用FTP或HTTP这样的以服务器为中心的协议，还是使用FileMQ这样的分散协议?
 
-- *Presence*: how do we track when other nodes come and go? Do we use some kind of central registration service, or heartbeating or beacons?
+如果我们能够很好地解决这些问题，以及将来会出现的进一步的问题(比如安全性和广域桥接)，我们就会得到一个框架，我可以称之为“真正酷的分布式应用程序”，或者我的孙子们称之为“我们这个世界赖以运行的软件”。
 
-- *Connectivity*: how do we actually connect one node to another? Do we use local networking, wide-area networking, or do we use a central message broker to do the forwarding?
-
-- *Point-to-point messaging*: how do we send a message from one node to another? Do we send this to the node's network address, or do we use some indirect addressing via a centralized message broker?
-
-- *Group messaging*: how do we send a message from one node to a group of others? Do we work via a centralized message broker, or do we use a pub-sub model like ZeroMQ?
-
-- *Testing and simulation*: how do we simulate large numbers of nodes so we can test performance properly? Do we have to buy two dozen Android tablets, or can we use pure software simulation?
-
-- *Distributed Logging*: how do we track what this cloud of nodes is doing so we can detect performance problems and failures? Do we create a main logging service, or do we allow every device to log the world around it?
-
-- *Content distribution*: how do we send content from one node to another? Do we use server-centric protocols like FTP or HTTP, or do we use decentralized protocols like FileMQ?
-
-If we can solve these problems reasonably well, and the further problems that will emerge (like security and wide-area bridging), we get something like a framework for what I might call "Really Cool Distributed Applications", or as my grandkids call it, "the software our world runs on".
-
-You should have guessed from my rhetorical questions that there are two broad directions in which we can go. One is to centralize everything. The other is to distribute everything. I'm going to bet on decentralization. If you want centralization, you don't really need ZeroMQ; there are other options you can use.
-
-So very roughly, here's the story. One, the number of moving pieces increases exponentially over time (doubles every 24 months). Two, these pieces stop using wires because dragging cables everywhere gets *really* boring. Three, future applications run across clusters of these pieces using the Benevolent Tyrant pattern from [Chapter 6 - The ZeroMQ Community](http://zguide.zeromq.org/page:all#the-community). Four, today it's really difficult, nay still rather impossible, to build such applications. Five, let's make it cheap and easy using all the techniques and tools we've built up. Six, partay!
+你应该已经从我的反问中猜到，我们可以朝两大方向前进。一是把一切集中起来。另一种是把所有东西都分配。我赌权力下放。如果你想要集中化，你并不真的需要ZeroMQ;您还可以使用其他选项。
+大致是这样的。第一，移动部件的数量随着时间呈指数级增长(每24个月翻一番)。第二，这些部件不再使用电线，因为到处拖着电缆会很无聊。第三，未来的应用程序将使用Chapter 6 - The ZeroMQ Community中的“仁慈的暴君”模式（the Benevolent Tyrant pattern）在这些块的集群中运行。第四，今天要构建这样的应用程序是非常困难的，甚至是不可能的。第五，让我们用我们已经建立的所有技术和工具使它变得便宜和容易。第六、partay !
 
 
 
-| [The Secret Life of WiFi](http://zguide.zeromq.org/page:all#The-Secret-Life-of-WiFi) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-231) [next](http://zguide.zeromq.org/page:all#header-233) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## The Secret Life of WiFi
 
-The future is clearly wireless, and while many big businesses live by concentrating data in their clouds, the future doesn't look quite so centralized. The devices at the edges of our networks get smarter every year, not dumber. They're hungry for work and information to digest and from which to profit. And they don't drag cables around, except once a night for power. It's all wireless and more and more, it's 802.11-branded WiFi of different alphabetical flavors.
+未来很明显是无线的，尽管许多大企业依靠将数据集中到云计算中来生存，但未来看起来并不那么集中。我们网络边缘的设备每年都在变得更智能，而不是更笨。他们渴望工作和信息来消化并从中获利。而且他们也不拖着电缆到处走，除非是为了供电。它完全是无线的，而且越来越多，它是802.11品牌的WiFi，按字母顺序排列。
 
 
 
-| [Why Mesh Isn't Here Yet](http://zguide.zeromq.org/page:all#Why-Mesh-Isn-t-Here-Yet) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-232) [next](http://zguide.zeromq.org/page:all#header-234) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### Why Mesh Isn't Here Yet
+作为我们未来如此重要的一部分，WiFi存在着一个不常被讨论的大问题，但任何押注于它的人都需要意识到这一点。世界上的电话公司几乎在每个政府正常运作的国家都建立了盈利丰厚的手机卡特尔，其基础是让政府相信，如果没有电波和想法的垄断权，世界将分崩离析。从技术上讲，我们称之为“监管俘获”和“专利”，但事实上，这只是敲诈和腐败的一种形式。如果你，国家，给我，一个企业，向市场征税的权利，并禁止所有真正的竞争对手，我将给你5%。不够吗?10%怎么样?好的，15%加上零食。如果您拒绝，我们将停止服务。
 
-As such a vital part of our future, WiFi has a big problem that's not often discussed, but that anyone betting on it needs to be aware of. The phone companies of the world have built themselves nice profitable mobile phone cartels in nearly every country with a functioning government, based on convincing governments that without monopoly rights to airwaves and ideas, the world would fall apart. Technically, we call this "regulatory capture" and "patents", but in fact it's just a form of blackmail and corruption. If you, the state, give me, a business, the right to overcharge, tax the market, and ban all real competitors, I'll give you 5%. Not enough? How about 10%? OK, 15% plus snacks. If you refuse, we pull service.
+但WiFi却偷偷溜过了这一关，借用了未经许可的空域，借助开放的、未申请专利的、非常创新的互联网协议栈。所以今天，我们面临着一种奇怪的情况，如果我使用我们资助了几十年的国家支持的基础设施，从首尔到布鲁塞尔每分钟要花几欧元，但如果我能找到一个不受监管的WiFi接入点，就什么都不用花。哦，我还可以做视频，发送文件和照片，下载整个家庭电影，所有这些都以同样惊人的价格，正好是0。如果我想用我实际付费的服务把一张照片寄回家，上帝会帮助我的。这比我拿着的相机还贵。
 
-But WiFi snuck past this, borrowing unlicensed airspace and riding on the back of the open and unpatented and remarkably innovative Internet Protocol stack. So today, we have the curious situation where it costs me several Euro a minute to call from Seoul to Brussels if I use the state-backed infrastructure that we've subsidized over decades, but nothing at all if I can find an unregulated WiFi access point. Oh, and I can do video, send files and photos, and download entire home movies all for the same amazing price point of precisely zero point zero zero (in any currency you like). God help me if I try to send just one photo home using the service for which I actually pay. That would cost me more than the camera I took it on.
+这是我们长期忍受“相信我们，我们是专家”专利制度所付出的代价。但更重要的是，这对科技行业的大部分企业——尤其是拥有反互联网GSM、GPRS、3G和LTE技术专利的芯片组制造商，以及将电信运营商视为主要客户的制造商——来说，是一个巨大的经济刺激，促使它们积极抑制WiFi的发展。当然，正是这些公司扩充了IEEE委员会对WiFi的定义。
+这种对律师驱动的“创新”的怒斥，是为了让你思考“如果WiFi真的是免费的呢?”这种情况总有一天会发生，就在不远的将来，值得一赌。我们会看到一些事情发生。首先，更积极地使用空域，特别是在没有干扰风险的近距离通信领域。其次，随着我们学会并行使用更多空域，容量将大幅提高。三是加快标准化进程。最后，在设备上为真正有趣的连接提供更广泛的支持。
 
-It is the price we pay for having tolerated the "trust us, we're the experts" patent system for so long. But more than that, it's a massive economic incentive to chunks of the technology sector—and especially chipset makers who own patents on the anti-Internet GSM, GPRS, 3G, and LTE stacks, and who treat the telcos as prime clients—to actively throttle WiFi development. And of course it's these firms that bulk out the IEEE committees that define WiFi.
-
-The reason for this rant against lawyer-driven "innovation" is to steer your thinking towards "what if WiFi were really free?" This will happen one day, not too far off, and it's worth betting on. We'll see several things happen. First, much more aggressive use of airspace especially for near-distance communications where there is no risk of interference. Second, big capacity improvements as we learn to use more airspace in parallel. Third, acceleration of the standardization process. Last, broader support in devices for really interesting connectivity.
-
-Right now, streaming a movie from your phone to your TV is considered "leading edge". This is ridiculous. Let's get truly ambitious. How about a stadium of people watching a game, sharing photos and HD video with each other in real time, creating an ad-hoc event that literally saturates the airspace with a digital frenzy. I should be able to collect terabytes of imagery from those around me, in an hour. Why does this have to go through Twitter or Facebook and that tiny expensive mobile data connection? How about a home with hundreds of devices all talking to each other over mesh, so when someone rings the doorbell, the porch lights stream video through to your phone or TV? How about a car that can talk to your phone and play your dubstep playlist *without you plugging in wires*.
-
-To get more serious, why is our digital society in the hands of central points that are monitored, censored, logged, used to track who we talk to, collect evidence against us, and then shut down when the authorities decide we have too much free speech? The loss of privacy we're living through is only a problem when it's one-sided, but then the problem is calamitous. A truly wireless world would bypass all central censorship. It's how the Internet was designed, and it's quite feasible, technically (which is the best kind of feasible).
+现在，把电影从手机上传到电视上被认为是“前沿”。这是荒谬的。让我们变得真正有野心。在体育场里，人们观看比赛，实时分享照片和高清视频，创造出一种特别的活动，让整个空间充斥着数字狂热。我应该能够在一个小时内从我周围的人那里收集到tb级的图像。为什么要通过Twitter或Facebook和那个小小的昂贵的移动数据连接呢?如果一个家里有几百台设备通过网络互相通话，那么当有人按门铃时，门廊里的灯光就会把视频传输到你的手机或电视上，你会怎么想?如果有一辆车可以和你的手机通话，播放你的dubstep播放列表，而不需要你接上电线，你会觉得怎么样?
+更严重的问题是，为什么我们的数字社会掌握在被监控、审查、记录、用来跟踪我们与谁交谈、收集不利于我们的证据，然后当当局认为我们拥有太多言论自由时就会关闭?我们正在经历的隐私的丧失只是一个问题，当它是片面的，但随后的问题是灾难性的。一个真正的无线世界将绕过所有的中央审查。这就是互联网是如何设计的，从技术上讲，它是相当可行的(这是最好的一种可行方式)。
 
 
+### Some Physics
 
-| [Some Physics](http://zguide.zeromq.org/page:all#Some-Physics) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-233) [next](http://zguide.zeromq.org/page:all#header-235) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+天真的分布式软件开发人员认为网络无限快，而且非常可靠。虽然这对于以太网上的简单应用程序来说几乎是正确的，但是WiFi很快证明了神奇思维和科学之间的区别。也就是说，WiFi很容易在压力下崩溃，有时我想知道怎么有人敢在真正的工作中使用它。WiFi越好，天花板就越高，但速度永远无法阻止我们触碰它。
+要理解WiFi在技术上的表现，你需要理解一个基本的物理定律:连接两个点所需的功率会随着距离的平方而增加。就像我在达拉斯学到的那样，在大房子里长大的人的声音会成倍地提高。对于WiFi网络，这意味着当两台收音机相距越远，它们要么使用更多的能量，要么降低信号速率。在用户认为这款设备坏得无可救药之前，你只能从电池中抽出这么多电量。因此，即使WiFi网络的速率是一定的，但是接入点(AP)和客户机之间的实际比特率取决于两者之间的距离。当你把你的无线电话从美联社移开时，两台试图互相通话的收音机将首先增加它们的功率，然后降低它们的比特率。
+如果我们想要构建健壮的分布式应用程序，而不是像木偶一样在它们后面挂线，那么这种效果的一些后果是我们应该注意的:
 
-Naive developers of distributed software treat the network as infinitely fast and perfectly reliable. While this is approximately true for simple applications over Ethernet, WiFi rapidly proves the difference between magical thinking and science. That is, WiFi breaks so easily and dramatically under stress that I sometimes wonder how anyone would dare use it for real work. The ceiling moves up as WiFi gets better, but never fast enough to stop us hitting it.
+- 如果有一组设备与AP通信，当AP与最慢的设备通信时，整个网络必须等待。这就像在派对上不得不对指定的司机重复一个笑话，而这个司机没有幽默感，仍然完全清醒，而且可悲的是，他对语言的掌握很差。
+- 如果您使用单播TCP并向多个设备发送消息，AP必须将数据包分别发送到每个设备，是的，您知道这一点，这也是以太网的工作原理。但现在要明白，一个遥远的(或低功率的)设备意味着一切都在等待最慢的设备赶上来。
+- 如果您使用多播或广播(它们在大多数情况下工作相同)，AP将一次性向整个网络发送单个数据包，这非常棒，但是它将以尽可能慢的比特率(通常为1Mbps)完成这项工作。您可以在某些APs中手动调整此速率。这只会降低AP的覆盖范围。您还可以购买更昂贵的AP，这些AP具有更多的智能，并且能够计算出它们可以安全使用的最高比特率。您还可以使用支持IGMP (Internet Group Management Protocol, Internet Group Management Protocol)和ZeroMQ的PGM传输的企业APs只发送到订阅的客户机。然而，我不认为这样的APs会得到广泛应用。
 
-To understand how WiFi performs technically, you need to understand a basic law of physics: the power required to connect two points increases according to the square of the distance. People who grow up in larger houses have exponentially louder voices, as I learned in Dallas. For a WiFi network, this means that as two radios get further apart, they have to either use more power or lower their signal rate.
-
-There's only so much power you can pull out of a battery before users treat the device as hopelessly broken. Thus even though a WiFi network may be rated at a certain speed, the real bit rate between the access point (AP) and a client depends on how far apart the two are. As you move your WiFi-enabled phone away from the AP, the two radios trying to talk to each other will first increase their power and then reduce their bit rate.
-
-This effect has some consequences of which we should be aware if we want to build robust distributed applications that don't dangle wires behind them like puppets:
-
-- If you have a group of devices talking to an AP, when the AP is talking to the slowest device, the *whole network has to wait*. It's like having to repeat a joke at a party to the designated driver who has no sense of humor, is still fully and tragically sober, and has a poor grasp of the language.
-
-- If you use unicast TCP and send a message to multiple devices, the AP must send the packets to each device separately, Yes, and you knew this, it's also how Ethernet works. But now understand that one distant (or low-powered) device means everything waits for that slowest device to catch up.
-
-- If you use multicast or broadcast (which work the same, in most cases), the AP will send single packets to the whole network at once, which is awesome, but it will do it at the slowest possible bit rate (usually 1Mbps). You can adjust this rate manually in some APs. That just reduces the reach of your AP. You can also buy more expensive APs that have a little more intelligence and will figure out the highest bit rate they can safely use. You can also use enterprise APs with IGMP (Internet Group Management Protocol) support and ZeroMQ's PGM transport to send only to subscribed clients. I'd not, however, bet on such APs being widely available, ever.
-
-As you try to put more devices onto an AP, performance rapidly gets worse to the point where adding one more device can break the whole network for everyone. Many APs solve this by randomly disconnecting clients when they reach some limit, such as four to eight devices for a mobile hotspot, 30-50 devices for a consumer AP, perhaps 100 devices for an enterprise AP.
+当您试图将更多的设备添加到AP时，性能会迅速下降，以至于增加一个设备就会破坏所有人的整个网络。许多AP解决这个问题的方法是在客户端达到某个限制时随机断开连接，比如移动热点的4到8台设备、消费AP的30-50台设备、企业AP的100台设备。
 
 
+## What's the Current Status?
 
-| [What's the Current Status?](http://zguide.zeromq.org/page:all#What-s-the-Current-Status) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-234) [next](http://zguide.zeromq.org/page:all#header-236) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+尽管WiFi作为一种企业技术在某种程度上逃到了野外，让人感到不舒服，但它已经比免费的Skype通话更有用了。它并不理想，但它的工作很好，足以让我们解决一些有趣的问题。让我给你一个快速的状态报告。
 
-Despite its uncomfortable role as enterprise technology that somehow escaped into the wild, WiFi is already useful for more than getting a free Skype call. It's not ideal, but it works well enough to let us solve some interesting problems. Let me give you a rapid status report.
+首先，点对点与访问点对客户机。传统的WiFi都是ap客户端。每个数据包必须从客户端A到AP，然后再到客户端b。你减少了50%的带宽，但这只是问题的一半。我讲过逆幂律。如果A和B非常接近，但是都远离AP，那么它们都将使用较低的比特率。假设您的AP在车库中，而您正在客厅中尝试将视频从您的手机传输到电视。好运！
 
-First, point-to-point versus access point-to-client. Traditional WiFi is all AP-client. Every packet has to go from client A to AP, then to client B. You cut your bandwidth by 50%, but that's only half the problem. I explained about the inverse power law. If A and B are very close together, but both are far from the AP, they'll both be using a low bit rate. Imagine your AP is in the garage, and you're in the living room trying to stream video from your phone to your TV. Good luck!
+有一种老式的“ad-hoc”模式，允许A和B互相通信，但是速度太慢，没有任何乐趣可言，当然，它在所有移动芯片组上都是禁用的。实际上，它在芯片组制造商善意提供给硬件制造商的绝密驱动程序中是禁用的。有一个新的隧道直接链接设置(TDLS)协议，它允许两个设备创建一个直接链接，使用AP进行发现，但不用于流量。此外，还有一个“5G”WiFi标准(这是一个营销术语，所以要加引号)，可以将链接速度提升到千兆比特。TDLS和5G结合在一起，使从手机到电视的高清电影流媒体成为可能。我认为TDLS将受到各种方式的限制，以安抚电信运营商。
 
-There is an old "ad-hoc" mode that lets A and B talk to each other, but it's way too slow for anything fun, and of course, it's disabled on all mobile chipsets. Actually, it's disabled in the top secret drivers that the chipset makers kindly provide to hardware makers. There is a new *Tunneled Direct Link Setup* (TDLS) protocol that lets two devices create a direct link, using an AP for discovery but not for traffic. And there's a "5G" WiFi standard (it's a marketing term, so it goes in quotes) that boosts link speeds to a gigabit. TDLS and 5G together make HD movie streaming from your phone to your TV a plausible reality. I assume TDLS will be restricted in various ways so as to placate the telcos.
+最后，我们在2012年看到了802.11s网格协议的标准化，经过了10年左右的快速工作。Mesh完全删除了访问点，至少在它存在并被广泛使用的假想未来是这样的。设备之间直接通信，并维护邻居的路由表，让它们转发数据包。想象一下，AP软件嵌入到每个设备中，但是足够聪明(它没有听起来那么令人印象深刻)，可以执行多个跳转。
 
-Lastly, we saw standardization of the 802.11s mesh protocol in 2012, after a remarkably speedy ten years or so of work. Mesh removes the access point completely, at least in the imaginary future where it exists and is widely used. Devices talk to each other directly, and maintain little routing tables of neighbors that let them forward packets. Imagine the AP software embedded into every device, but smart enough (it's not as impressive as it sounds) to do multiple hops.
+从移动数据敲诈勒索中赚钱的人都不希望看到802.11可用，因为城市范围内的网格对于底线来说是一场噩梦，所以它发生得越慢越好。唯一有能力(而且，我认为地对地导弹)使网格技术得到广泛应用的大型组织是美国陆军。但mesh将会出现，我打赌到2020年左右，802.11将在消费电子产品中得到广泛应用。
 
-No one who is making money from the mobile data extortion racket wants to see 802.11s available because city-wide mesh is such a nightmare for the bottom line, so it's happening as slowly as possible. The only large organization with the power (and, I assume the surface-to-surface missiles) to get mesh technology into wide use is the US Army. But mesh will emerge and I'd bet on 802.11s being widely available in consumer electronics by 2020 or so.
+第二，如果我们没有点对点，我们今天还能信任APs到什么程度?好吧，如果你去美国的星巴克(Starbucks)，用两台通过免费WiFi连接的笔记本电脑尝试ZeroMQ的“Hello World”，你会发现它们无法连接。为什么?答案就在名字里:“attwifi”。AT&T是一个很好的老牌电信公司，它讨厌WiFi，而且很可能为星巴克和其他公司提供廉价的服务，这样独立运营商就无法进入市场。但你购买的任何接入点都将支持客户端到应用程序到客户端访问，而且在美国以外，我从来没有发现过像AT&T那样被锁定的公共AP。
 
-Second, if we don't have point-to-point, how far can we trust APs today? Well, if you go to a Starbucks in the US and try the ZeroMQ "Hello World" example using two laptops connected via the free WiFi, you'll find they cannot connect. Why? Well, the answer is in the name: "attwifi". AT&T is a good old incumbent telco that hates WiFi and presumably provides the service cheaply to Starbucks and others so that independents can't get into the market. But any access point you buy will support client-to-AP-to-client access, and outside the US I've never found a public AP locked-down the AT&T way.
+第三,性能。美联社显然是一个瓶颈;即使你把A和B按字面意思放在AP旁边，你也无法获得超过其广告速度一半的速度。更糟糕的是，如果在同一空域有其他AP，它们会互相大喊大叫。在我家，WiFi几乎无法工作，因为楼下两幢房子的邻居都有一个扩音器。即使在不同的频道，它也会干扰我们家里的WiFi。在我现在坐的咖啡馆里，有十几个广播网。实际上，只要我们依赖于基于ap的WiFi，我们就会受到随机干扰和不可预测的性能。
 
-Third, performance. The AP is clearly a bottleneck; you cannot get better than half of its advertised speed even if you put A and B literally beside the AP. Worse, if there are other APs in the same airspace, they'll shout each other out. In my home, WiFi barely works at all because the neighbors two houses down have an AP which they've amplified. Even on a different channel, it interferes with our home WiFi. In the cafe where I'm sitting now there are over a dozen networks. Realistically, as long as we're dependent on AP-based WiFi, we're subject to random interference and unpredictable performance.
+第四,电池寿命。例如，WiFi在空闲时比蓝牙更饥渴，这并没有内在的原因。他们使用相同的无线电和低电平帧。主要的区别在于调优和协议。为了让无线节电工作得更好，设备大多需要睡眠，并且每隔一段时间才会向其他设备发送一次信号。为了实现这一点，他们需要同步他们的时钟。这对于手机来说是很合适的，这就是为什么我的旧翻盖手机一次充电可以运行五天。当WiFi工作时，它会消耗更多的能量。目前的功放技术效率也很低，这意味着你从电池中吸收的能量要比你往空气中泵的能量多得多(这些废物会变成一个热手机)。随着人们越来越关注移动WiFi，功率放大器也在不断改进。
 
-Fourth, battery life. There's no inherent reason that WiFi, when idle, is hungrier than Bluetooth, for example. They use the same radios and low-level framing. The main difference is tuning and in the protocols. For wireless power-saving to work well, devices have to mostly sleep and beacon out to other devices only once every so often. For this to work, they need to synchronize their clocks. This happens properly for the mobile phone part, which is why my old flip phone can run five days on a charge. When WiFi is working, it will use more power. Current power amplifier technology is also inefficient, meaning you draw a lot more energy from your battery than you pump into the air (the waste turns into a hot phone). Power amplifiers are improving as people focus more on mobile WiFi.
-
-Lastly, mobile access points. If we can't trust centralized APs, and if our devices are smart enough to run full operating systems, can't we make them work as APs? I'm *so glad* you asked that question. Yes, we can, and it works quite nicely. Especially because you can switch this on and off in software, on a modern OS like Android. Again, the villains of the peace are the US telcos, who mostly detest this feature and kill it or cripple it on the phones they control. Smarter telcos realize that it's a way to amplify their "last mile" and bring higher-value products to more users, but crooks don't compete on smarts.
+最后，移动接入点。如果我们不能信任集中的APs，如果我们的设备足够聪明，能够运行完整的操作系统，我们就不能让它们作为APs工作吗?我很高兴你问了这个问题。是的，我们可以，而且效果很好。特别是因为你可以在软件中打开或关闭它，在像Android这样的现代操作系统上。同样，美国电信运营商是破坏和平的罪魁祸首，他们大多讨厌这个功能，并在他们控制的手机上杀死或破坏它。更聪明的电信运营商意识到，这是一种扩大其“最后一英里”的方式，可以为更多用户带来更高价值的产品，但骗子不会在智能上竞争。
 
 
 
@@ -7822,23 +7784,19 @@ Lastly, mobile access points. If we can't trust centralized APs, and if our devi
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 |                                                              |                                                              |
 
-WiFi is not Ethernet and although I believe future ZeroMQ applications will have a very important decentralized wireless presence, it's not going to be an easy road. Much of the basic reliability and capacity that you expect from Ethernet is missing. When you run a distributed application over WiFi, you must allow for frequent timeouts, random latencies, arbitrary disconnections, whole interfaces going down and coming up, and so on.
+WiFi不是以太网，尽管我相信未来的ZeroMQ应用程序将会有一个非常重要的分散式无线存在，但这并不是一条容易的路。您期望从以太网获得的大部分基本可靠性和容量都丢失了。当您在WiFi上运行分布式应用程序时，您必须考虑频繁的超时、随机延迟、任意断开连接、整个接口上下浮动等等。
 
-The technological evolution of wireless networking is best described as "slow and joyless". Applications and frameworks that try to exploit decentralized wireless are mostly absent or poor. The only existing open source framework for proximity networking is [AllJoyn](https://www.alljoyn.org/) from Qualcomm. But with ZeroMQ, we proved that the inertia and decrepit incompetence of existing players was no reason for us to sit still. When we accurately understand problems, we can solve them. What we imagine, we can make real.
-
-
-
-| [Discovery](http://zguide.zeromq.org/page:all#Discovery) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-236) [next](http://zguide.zeromq.org/page:all#header-238) |
-| -------------------------------------------------------- | ------------------------------------------------------------ |
-|                                                          |                                                              |
-
-Discovery is an essential part of network programming and a first-class problem for ZeroMQ developers. Every `zmq_connect ()` call provides an endpoint string, and that has to come from somewhere. The examples we've seen so far don't do discovery: the endpoints they connect to are hard-coded as strings in the code. While this is fine for example code, it's not ideal for real applications. Networks don't behave that nicely. Things change, and it's how well we handle change that defines our long-term success.
+无线网络技术的发展被形容为“缓慢而无趣”。试图利用分散式无线的应用程序和框架大多不存在，或者很差。目前唯一的近距离网络开源框架是高通的AllJoyn。但有了ZeroMQ，我们证明了现有球员的惰性和老朽的无能并不是我们坐视不管的理由。当我们准确地理解问题时，我们就能解决它们。我们想象的，我们就能实现。
 
 
 
-| [Service Discovery](http://zguide.zeromq.org/page:all#Service-Discovery) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-237) [next](http://zguide.zeromq.org/page:all#header-239) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## Discovery
+
+发现是网络编程的重要组成部分，也是ZeroMQ开发人员的一流问题。每个zmq_connect（）调用都提供一个端点字符串，而且必须来自某个地方。到目前为止我们看到的示例没有发现：它们连接的端点在代码中被硬编码为字符串。虽然这对于示例代码来说很好，但它对于实际应用程序来说并不理想。网络表现不佳。事情发生了变化，而这正是我们处理变革的方式，它定义了我们的长期成功。
+
+
+
+### Service Discovery
 
 Let's start with definitions. Network discovery is finding out what other peers are on the network. Service discovery is learning what those peers can do for us. Wikipedia defines a "network service" as "a service that is hosted on a computer network", and "service" as "a set of related software functionalities that can be reused for different purposes, together with the policies that should control its usage". It's not very helpful. Is Facebook a network service?
 
