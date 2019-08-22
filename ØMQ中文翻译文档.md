@@ -1830,30 +1830,28 @@ This complex envelope stack gets chewed up first by the backend ROUTER socket, w
 
 ![fig36.png](https://github.com/imatix/zguide/raw/master/images/fig36.png)
 
-The worker has to save the envelope (which is all the parts up to and including the empty message frame) and then it can do what's needed with the data part. Note that a REP socket would do this automatically, but we're using the REQ-ROUTER pattern so that we can get proper load balancing.
 
-On the return path, the messages are the same as when they come in, i.e., the backend socket gives the broker a message in five parts, and the broker sends the frontend socket a message in three parts, and the client gets a message in one part.
+//直译了==> 需修改
+工作人员必须保存信封(信封是到空消息框为止的所有部分，包括空消息框)，然后才能对数据部分执行所需的操作。请注意，REP套接字会自动执行此操作，但我们使用的是REQ-ROUTER模式，因此我们可以获得适当的负载平衡。
 
-Now let's look at the load balancing algorithm. It requires that both clients and workers use REQ sockets, and that workers correctly store and replay the envelope on messages they get. The algorithm is:
+在返回路径上，消息与传入时相同，即，后端套接字将消息分成五部分发送给代理，代理将消息分成三部分发送给前端套接字，客户端将消息分成一个部分。
 
-- Create a pollset that always polls the backend, and polls the frontend only if there are one or more workers available.
+现在让我们看看负载平衡算法。它要求客户端和工作人员都使用REQ套接字，并且工作人员在收到消息时正确地存储和重放信封。该算法是:
 
-- Poll for activity with infinite timeout.
+- 创建一个poll集，它总是轮询后端，只有当有一个或多个工作人员可用时才轮询前端。
+- 轮询具有无限超时的活动。
+- 如果后端有活动，我们要么有一个“就绪”消息，要么有一个客户端的回复。在这两种情况下，我们都将worker地址(第一部分)存储在worker队列中，如果其余部分是客户机应答，则通过前端将其发送回客户机。
+- 如果前端有活动，我们接收客户机请求，弹出下一个worker(最后使用的)，并将请求发送到后端。这意味着发送worker地址、空部分以及客户机请求的三个部分。
 
-- If there is activity on the backend, we either have a "ready" message or a reply for a client. In either case, we store the worker address (the first part) on our worker queue, and if the rest is a client reply, we send it back to that client via the frontend.
-
-- If there is activity on the frontend, we take the client request, pop the next worker (which is the last used), and send the request to the backend. This means sending the worker address, empty part, and then the three parts of the client request.
-
-You should now see that you can reuse and extend the load balancing algorithm with variations based on the information the worker provides in its initial "ready" message. For example, workers might start up and do a performance self test, then tell the broker how fast they are. The broker can then choose the fastest available worker rather than the oldest.
-
+您现在应该看到，您可以重用和扩展负载平衡算法，并根据工作人员在其初始“就绪”消息中提供的信息进行更改。例如，工作人员可能启动并进行性能自我测试，然后告诉代理他们的速度有多快。然后，代理可以选择可用的最快的工人，而不是最老的工人。
 
 
 | [A High-Level API for ZeroMQ](http://zguide.zeromq.org/page:all#A-High-Level-API-for-ZeroMQ) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-73) [next](http://zguide.zeromq.org/page:all#header-75) |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 |                                                              |                                                              |
 
-We're going to push request-reply onto the stack and open a different area, which is the ZeroMQ API itself. There's a reason for this detour: as we write more complex examples, the low-level ZeroMQ API starts to look increasingly clumsy. Look at the core of the worker thread from our load balancing broker:
-
+我们将把request-reply推入堆栈并打开另一个区域，即ZeroMQ API本身。这样做是有原因的:当我们编写更复杂的示例时，底层ZeroMQ API看起来越来越笨拙。看看我们的负载平衡代理的工作线程的核心:
+```
 **while** (true) {
 `    `*//  Get one address frame and empty delimiter*
 `    `char *address = s_recv (worker);
@@ -1871,9 +1869,9 @@ We're going to push request-reply onto the stack and open a different area, whic
 `    `s_send`     `(worker, "OK");
 `    `free (address);
 }
-
-That code isn't even reusable because it can only handle one reply address in the envelope, and it already does some wrapping around the ZeroMQ API. If we used the `libzmq` simple message API this is what we'd have to write:
-
+```
+该代码甚至不能重用，因为它只能处理信封中的一个回复地址，而且它已经对ZeroMQ API进行了一些包装。如果我们使用libzmq简单消息API，我们必须这样写:
+```
 **while** (true) {
 `    `*//  Get one address frame and empty delimiter*
 `    `char address [255];
@@ -1899,23 +1897,20 @@ That code isn't even reusable because it can only handle one reply address in th
 `    `zmq_send (worker, empty, 0, ZMQ_SNDMORE);
 `    `zmq_send (worker, "OK", 2, 0);
 }
+```
+当代码太长而不能快速编写时，理解它也太长。到目前为止，我一直坚持使用本机API，因为作为ZeroMQ用户，我们需要深入了解这一点。但当它阻碍我们的时候，我们必须把它当作一个需要解决的问题。
 
-And when code is too long to write quickly, it's also too long to understand. Up until now, I've stuck to the native API because, as ZeroMQ users, we need to know that intimately. But when it gets in our way, we have to treat it as a problem to solve.
+当然，我们不能仅仅更改ZeroMQ API，这是一个文档化的公共契约，成千上万的人同意并依赖它。相反，我们基于到目前为止的经验，尤其是编写更复杂的请求-应答模式的经验，在顶层构建一个更高级别的API。
 
-We can't of course just change the ZeroMQ API, which is a documented public contract on which thousands of people agree and depend. Instead, we construct a higher-level API on top based on our experience so far, and most specifically, our experience from writing more complex request-reply patterns.
+我们想要的是一个API，它允许我们一次性接收和发送完整的消息，包括包含任意数量回复地址的回复信封。它让我们用最少的代码行来做我们想做的事情。
 
-What we want is an API that lets us receive and send an entire message in one shot, including the reply envelope with any number of reply addresses. One that lets us do what we want with the absolute least lines of code.
+创建一个好的消息API相当困难。我们有一个术语问题:ZeroMQ使用“message”来描述多部分消息和单个消息框架。我们有一个期望问题:有时将消息内容视为可打印的字符串数据是很自然的，有时将其视为二进制块。我们面临着技术上的挑战，尤其是如果我们想避免过多地复制数据的话。
 
-Making a good message API is fairly difficult. We have a problem of terminology: ZeroMQ uses "message" to describe both multipart messages, and individual message frames. We have a problem of expectations: sometimes it's natural to see message content as printable string data, sometimes as binary blobs. And we have technical challenges, especially if we want to avoid copying data around too much.
-
-The challenge of making a good API affects all languages, though my specific use case is C. Whatever language you use, think about how you could contribute to your language binding to make it as good (or better) than the C binding I'm going to describe.
+尽管我的特定用例是C语言，但制作一个好的API所面临的挑战影响到所有的语言。无论您使用哪种语言，请考虑如何为您的语言绑定做出贡献，使其与我将要描述的C绑定一样好(或更好)。
 
 
 
-| [Features of a Higher-Level API](http://zguide.zeromq.org/page:all#Features-of-a-Higher-Level-API) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-74) [next](http://zguide.zeromq.org/page:all#header-76) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
+### Features of a Higher-Level API
 My solution is to use three fairly natural and obvious concepts: *string* (already the basis for our `s_send` and `s_recv`) helpers, *frame* (a message frame), and *message* (a list of one or more frames). Here is the worker code, rewritten onto an API using these concepts:
 
 **while** (true) {
@@ -2109,22 +2104,19 @@ If you're using child threads, they won't receive the interrupt. To tell them to
 
 
 
-| [The Asynchronous Client/Server Pattern](http://zguide.zeromq.org/page:all#The-Asynchronous-Client-Server-Pattern) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-76) [next](http://zguide.zeromq.org/page:all#header-78) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+## 异步客户端/服务器模式The Asynchronous Client/Server Pattern
 
-In the ROUTER to DEALER example, we saw a 1-to-N use case where one server talks asynchronously to multiple workers. We can turn this upside down to get a very useful N-to-1 architecture where various clients talk to a single server, and do this asynchronously.
+在ROUTER to DEALER示例中，我们看到了一个1到N的用例，其中一个服务器与多个工作程序异步对话。我们可以将其颠倒过来，以获得一个非常有用的N-to-1架构，其中各种客户端与单个服务器进行通信，并以异步方式执行此操作。
 
 **Figure 37 - Asynchronous Client/Server**
 
 ![fig37.png](https://github.com/imatix/zguide/raw/master/images/fig37.png)
 
-Here's how it works:
-
-- Clients connect to the server and send requests.
-- For each request, the server sends 0 or more replies.
-- Clients can send multiple requests without waiting for a reply.
-- Servers can send multiple replies without waiting for new requests.
+以下是它的工作原理：
+- 客户端连接到服务器并发送请求。
+- 对于每个请求，服务器发送0个或更多回复。
+- 客户端可以发送多个请求而无需等待回复。
+- 服务器可以发送多个回复，而无需等待新请求。
 
 Here's code that shows how this works:
 
@@ -2133,11 +2125,11 @@ Here's code that shows how this works:
 
 [C++](http://zguide.zeromq.org/cpp:asyncsrv) | [C#](http://zguide.zeromq.org/cs:asyncsrv) | [Clojure](http://zguide.zeromq.org/clj:asyncsrv) | [Delphi](http://zguide.zeromq.org/dpr:asyncsrv) | [Erlang](http://zguide.zeromq.org/es:asyncsrv) | [F#](http://zguide.zeromq.org/fsx:asyncsrv) | [Go](http://zguide.zeromq.org/go:asyncsrv) | [Haskell](http://zguide.zeromq.org/hs:asyncsrv) | [Haxe](http://zguide.zeromq.org/hx:asyncsrv) | [Java](http://zguide.zeromq.org/java:asyncsrv) | [Lua](http://zguide.zeromq.org/lua:asyncsrv) | [Node.js](http://zguide.zeromq.org/js:asyncsrv) | [PHP](http://zguide.zeromq.org/php:asyncsrv) | [Python](http://zguide.zeromq.org/py:asyncsrv) | [Ruby](http://zguide.zeromq.org/rb:asyncsrv) | [Scala](http://zguide.zeromq.org/scala:asyncsrv) | [Tcl](http://zguide.zeromq.org/tcl:asyncsrv) | [Ada | Basic | CL | Felix | Objective-C | ooc | Perl | Q | Racket](http://zguide.zeromq.org/main:translate)
 
-Some comments on this code:
+该示例在一个进程中运行，多个线程模拟真实的多进程体系结构。运行该示例时，您将看到三个客户端（每个客户端都有一个随机ID），打印出他们从服务器获得的回复。仔细查看，您会看到每个客户端任务每个请求获得0个或更多回复。
 
-- The clients send a request once per second, and get zero or more replies back. To make this work using `zmq_poll()`, we can't simply poll with a 1-second timeout, or we'd end up sending a new request only one second *after we received the last reply*. So we poll at a high frequency (100 times at 1/100th of a second per poll), which is approximately accurate.
-
-- The server uses a pool of worker threads, each processing one request synchronously. It connects these to its frontend socket using an internal queue. It connects the frontend and backend sockets using a `zmq_proxy()` call.
+对此代码的一些评论：
+- 客户端每秒发送一次请求，并返回零个或多个回复。为了使用zmq_poll（）来完成这项工作，我们不能简单地使用1秒的超时轮询，或者在收到最后一个回复后我们最终只发送一个新请求。所以我们以高频率（每次轮询1/100秒的100次）进行轮询，这几乎是准确的。
+- 服务器使用工作线程池，每个线程同步处理一个请求。它使用内部队列将它们连接到它的前端套接字。它使用zmq_proxy（）调用连接前端和后端套接字。
 
 **Figure 38 - Detail of Asynchronous Server**
 
@@ -2168,54 +2160,37 @@ We cheat in the above example by keeping state only for a very short time (the t
 - Detect a stopped heartbeat. If there's no request from a client within, say, two seconds, the server can detect this and destroy any state it's holding for that client.
 
 
+## Worked Example: Inter-Broker Routing
 
-| [Worked Example: Inter-Broker Routing](http://zguide.zeromq.org/page:all#Worked-Example-Inter-Broker-Routing) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-77) [next](http://zguide.zeromq.org/page:all#header-79) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-Let's take everything we've seen so far, and scale things up to a real application. We'll build this step-by-step over several iterations. Our best client calls us urgently and asks for a design of a large cloud computing facility. He has this vision of a cloud that spans many data centers, each a cluster of clients and workers, and that works together as a whole. Because we're smart enough to know that practice always beats theory, we propose to make a working simulation using ZeroMQ. Our client, eager to lock down the budget before his own boss changes his mind, and having read great things about ZeroMQ on Twitter, agrees.
+让我们看看目前为止所见过的所有内容，并将其扩展到实际应用程序。我们将在几次迭代中逐步构建它。我们最好的客户急需我们，并要求设计一个大型云计算设施。他有一个跨越许多数据中心的云的愿景，每个数据中心都是客户和工作者的集群，并且它们作为一个整体协同工作。因为我们足够聪明地知道实践总是胜过理论，所以我们建议使用ZeroMQ进行工作模拟。我们的客户，渴望在他自己的老板改变主意之前锁定预算，并在Twitter上阅读关于ZeroMQ的好消息，同意。
 
 
 
-| [Establishing the Details](http://zguide.zeromq.org/page:all#Establishing-the-Details) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-78) [next](http://zguide.zeromq.org/page:all#header-80) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### Establishing the Details
+以后有几个espressos，我们想跳进编写代码，但是一个小小的声音告诉我们在完全解决错误问题之前获得更多细节。我们问道：“云做了什么工作？”
 
-Several espressos later, we want to jump into writing code, but a little voice tells us to get more details before making a sensational solution to entirely the wrong problem. "What kind of work is the cloud doing?", we ask.
+客户解释说：
+- 工作人员使用各种硬件，但他们都能够处理任何任务。每个集群有几百个工作者，总共有十几个集群。
+- 客户端为工作人员创建任务。每个任务都是一个独立的工作单元，所有客户想要的是找到一个可用的工人，并尽快将任务发送给它。会有很多客户，他们会随意来去匆匆。
+- 真正的困难是能够随时添加和删除集群。集群可以立即离开或加入云，为其所有工作人员和客户提供服务。
+- 如果他们自己的集群中没有工作人员，则客户端的任务将转移到云中的其他可用工作人员。
+- 客户端一次发送一个任务，等待回复。如果他们在X秒内没有得到答案，他们就会再次发出任务。这不是我们关心的问题;客户端API已经完成了。
+- 工人一次处理一项任务;他们是非常简单的野兽。如果它们崩溃，它们会被启动它们的任何脚本重新启动。
 
-The client explains:
+所以我们仔细检查以确保我们正确理解这一点：
+- “群集之间会有某种超级网络互连，对吧？”，我们问道。客户说，“是的，当然，我们不是白痴。
+- ”“我们在谈论什么样的卷？”，我们问道。客户回答说：“每个群集最多有一千个客户端，每个最多每秒执行十个请求。请求很小，回复也很小，每个不超过1K字节。”
 
-- Workers run on various kinds of hardware, but they are all able to handle any task. There are several hundred workers per cluster, and as many as a dozen clusters in total.
+所以我们做了一些计算，看到这对普通的TCP很有效。 2,500个客户端x 10 /秒x 1,000字节x 2个方向= 50 MB /秒或400 Mb /秒，对1Gb网络来说不是问题。
 
-- Clients create tasks for workers. Each task is an independent unit of work and all the client wants is to find an available worker, and send it the task, as soon as possible. There will be a lot of clients and they'll come and go arbitrarily.
-
-- The real difficulty is to be able to add and remove clusters at any time. A cluster can leave or join the cloud instantly, bringing all its workers and clients with it.
-
-- If there are no workers in their own cluster, clients' tasks will go off to other available workers in the cloud.
-
-- Clients send out one task at a time, waiting for a reply. If they don't get an answer within X seconds, they'll just send out the task again. This isn't our concern; the client API does it already.
-
-- Workers process one task at a time; they are very simple beasts. If they crash, they get restarted by whatever script started them.
-
-So we double-check to make sure that we understood this correctly:
-
-- "There will be some kind of super-duper network interconnect between clusters, right?", we ask. The client says, "Yes, of course, we're not idiots."
-
-- "What kind of volumes are we talking about?", we ask. The client replies, "Up to a thousand clients per cluster, each doing at most ten requests per second. Requests are small, and replies are also small, no more than 1K bytes each."
-
-So we do a little calculation and see that this will work nicely over plain TCP. 2,500 clients x 10/second x 1,000 bytes x 2 directions = 50MB/sec or 400Mb/sec, not a problem for a 1Gb network.
-
-It's a straightforward problem that requires no exotic hardware or protocols, just some clever routing algorithms and careful design. We start by designing one cluster (one data center) and then we figure out how to connect clusters together.
+这是一个简单的问题，不需要特殊的硬件或协议，只需要一些巧妙的路由算法和精心设计。我们首先设计一个集群（一个数据中心），然后我们弄清楚如何将集群连接在一起。
 
 
 
-| [Architecture of a Single Cluster](http://zguide.zeromq.org/page:all#Architecture-of-a-Single-Cluster) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-79) [next](http://zguide.zeromq.org/page:all#header-81) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+###  单个集群的体系结构Architecture of a Single Cluster
 
-Workers and clients are synchronous. We want to use the load balancing pattern to route tasks to workers. Workers are all identical; our facility has no notion of different services. Workers are anonymous; clients never address them directly. We make no attempt here to provide guaranteed delivery, retry, and so on.
-
-For reasons we already examined, clients and workers won't speak to each other directly. It makes it impossible to add or remove nodes dynamically. So our basic model consists of the request-reply message broker we saw earlier.
+工人和客户是同步的。我们希望使用负载平衡模式将任务路由到工作人员。工人都是一样的;我们的设施没有不同服务的概念。工人是匿名的;客户从不直接解决它们。我们在此不做任何尝试，以提供有保证的交付，重试等。
+由于我们已经检查过的原因，客户和工人不会直接相互通话。它使得无法动态添加或删除节点。所以我们的基本模型包括我们之前看到的请求 - 回复消息代理。
 
 **Figure 39 - Cluster Architecture**
 
@@ -2223,107 +2198,80 @@ For reasons we already examined, clients and workers won't speak to each other d
 
 
 
-| [Scaling to Multiple Clusters](http://zguide.zeromq.org/page:all#Scaling-to-Multiple-Clusters) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-80) [next](http://zguide.zeromq.org/page:all#header-82) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
-
-Now we scale this out to more than one cluster. Each cluster has a set of clients and workers, and a broker that joins these together.
+### Scaling to Multiple Clusters
+现在我们将其扩展到多个集群。每个集群都有一组客户端和工作者，以及将这些连接在一起的代理。
 
 **Figure 40 - Multiple Clusters**
 
 ![fig40.png](https://github.com/imatix/zguide/raw/master/images/fig40.png)
 
-The question is: how do we get the clients of each cluster talking to the workers of the other cluster? There are a few possibilities, each with pros and cons:
-
-- Clients could connect directly to both brokers. The advantage is that we don't need to modify brokers or workers. But clients get more complex and become aware of the overall topology. If we want to add a third or forth cluster, for example, all the clients are affected. In effect we have to move routing and failover logic into the clients and that's not nice.
-
-- Workers might connect directly to both brokers. But REQ workers can't do that, they can only reply to one broker. We might use REPs but REPs don't give us customizable broker-to-worker routing like load balancing does, only the built-in load balancing. That's a fail; if we want to distribute work to idle workers, we precisely need load balancing. One solution would be to use ROUTER sockets for the worker nodes. Let's label this "Idea #1".
-
-- Brokers could connect to each other. This looks neatest because it creates the fewest additional connections. We can't add clusters on the fly, but that is probably out of scope. Now clients and workers remain ignorant of the real network topology, and brokers tell each other when they have spare capacity. Let's label this "Idea #2".
-
-Let's explore Idea #1. In this model, we have workers connecting to both brokers and accepting jobs from either one.
+问题是：我们如何让每个集群的客户端与其他集群的工作人员交谈？有几种可能性，每种都有利有弊：
+- 客户可以直接连接到两个经纪人。优点是我们不需要修改经纪人或工人。但客户端变得更加复杂并且意识到整体拓扑结构。例如，如果我们要添加第三个或第四个群集，则所有客户端都会受到影响。实际上，我们必须将路由和故障转移逻辑移动到客户端，这并不好。
+- 工人可以直接连接到两个经纪人。但REQ工作人员不能这样做，他们只能回复一个经纪人。我们可能会使用REP，但是REP并没有给我们提供可自定义的代理到工作路由，比如负载均衡，只有内置的负载均衡。那是失败的;如果我们想将工作分配给闲置工人，我们确实需要负载平衡。一种解决方案是将ROUTER套接字用于工作节点。让我们标记这个“想法＃1”。
+- 经纪人可以相互联系。这看起来最好，因为它创建了最少的额外连接。我们无法动态添加集群，但这可能超出了范围。现在，客户和工作人员仍然不了解真正的网络拓扑，经纪人告诉对方何时有剩余容量。让我们标记这个“想法＃2”。让我们探索想法＃1。在这个模型中，我们让工人连接到两个经纪人并接受任何一个经纪人的工作。
 
 **Figure 41 - Idea 1: Cross-connected Workers**
 
 ![fig41.png](https://github.com/imatix/zguide/raw/master/images/fig41.png)
 
-It looks feasible. However, it doesn't provide what we wanted, which was that clients get local workers if possible and remote workers only if it's better than waiting. Also workers will signal "ready" to both brokers and can get two jobs at once, while other workers remain idle. It seems this design fails because again we're putting routing logic at the edges.
+看起来很可行。然而，它并没有提供我们想要的东西，即如果可能的话客户得到本地工人，而只有在比等待更好的情况下才能得到远程工作人员。工人们也会向两个经纪人发出“准备好”的信号，可以同时获得两份工作，而其他工人仍处于闲置状态。看起来这个设计失败了，因为我们再次将路由逻辑放在边缘。
 
-So, idea #2 then. We interconnect the brokers and don't touch the clients or workers, which are REQs like we're used to.
+那么，想法＃2然后。我们将经纪人互连，不要接触客户或工人，这些都是我们习惯的REQ。
 
 **Figure 42 - Idea 2: Brokers Talking to Each Other**
 
 ![fig42.png](https://github.com/imatix/zguide/raw/master/images/fig42.png)
 
-This design is appealing because the problem is solved in one place, invisible to the rest of the world. Basically, brokers open secret channels to each other and whisper, like camel traders, "Hey, I've got some spare capacity. If you have too many clients, give me a shout and we'll deal".
+这种设计很有吸引力，因为问题在一个地方得到解决，对世界其他地方来说是不可见的。基本上，经纪人互相打开秘密通道，像骆驼商人一样低语，“嘿，我有一些闲置的容量。如果你有太多的客户，请给我一个喊叫，我们会处理”。
+实际上，它只是一种更复杂的路由算法：经纪人成为彼此的分包商。在我们使用真实代码之前，还有其他一些关于此设计的事情：
+- 它将常见情况（同一群集上的客户端和工作者）视为默认情况，并为特殊情况（群集之间的混洗作业）执行额外工作。
+- 它允许我们为不同类型的工作使用不同的消息流。这意味着我们可以以不同方式处理它们，例如，使用不同类型的网络连接。
+- 感觉它会顺利扩展。连接三个或更多经纪人并不会变得过于复杂。如果我们发现这是一个问题，可以通过添加超级代理来轻松解决。
 
-In effect it is just a more sophisticated routing algorithm: brokers become subcontractors for each other. There are other things to like about this design, even before we play with real code:
+我们现在做一个有效的例子。我们将整个集群打包到一个进程中。这显然是不现实的，但它使模拟变得简单，并且模拟可以准确地扩展到实际过程。这是ZeroMQ的魅力 - 您可以在微观层面进行设计并扩展到宏观层面。线程成为进程，然后变成框，模式和逻辑保持不变。我们的每个“集群”进程都包含客户端线程，工作线程和代理线程。
 
-- It treats the common case (clients and workers on the same cluster) as default and does extra work for the exceptional case (shuffling jobs between clusters).
-
-- It lets us use different message flows for the different types of work. That means we can handle them differently, e.g., using different types of network connection.
-
-- It feels like it would scale smoothly. Interconnecting three or more brokers doesn't get overly complex. If we find this to be a problem, it's easy to solve by adding a super-broker.
-
-We'll now make a worked example. We'll pack an entire cluster into one process. That is obviously not realistic, but it makes it simple to simulate, and the simulation can accurately scale to real processes. This is the beauty of ZeroMQ—you can design at the micro-level and scale that up to the macro-level. Threads become processes, and then become boxes and the patterns and logic remain the same. Each of our "cluster" processes contains client threads, worker threads, and a broker thread.
-
-We know the basic model well by now:
-
-- The REQ client (REQ) threads create workloads and pass them to the broker (ROUTER).
-- The REQ worker (REQ) threads process workloads and return the results to the broker (ROUTER).
-- The broker queues and distributes workloads using the load balancing pattern.
+我们现在很了解基本模型：
+- REQ客户端（REQ）线程创建工作负载并将它们传递给代理（ROUTER）。
+- REQ工作线程（REQ）处理工作负载并将结果返回给代理（ROUTER）。
+- 代理使用负载平衡模式对工作负载进行排队和分发。
 
 
 
-| [Federation Versus Peering](http://zguide.zeromq.org/page:all#Federation-Versus-Peering) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-81) [next](http://zguide.zeromq.org/page:all#header-83) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### Federation Versus Peering
+有几种可能的方法来互连经纪人。我们想要的是能够告诉其他经纪人“我们有能力”，然后接收多个任务。我们还需要能够告诉其他经纪人，“停止，我们已经满员”。它不需要是完美的;有时我们可能接受我们无法立即处理的工作，然后我们会尽快完成。
 
-There are several possible ways to interconnect brokers. What we want is to be able to tell other brokers, "we have capacity", and then receive multiple tasks. We also need to be able to tell other brokers, "stop, we're full". It doesn't need to be perfect; sometimes we may accept jobs we can't process immediately, then we'll do them as soon as possible.
-
-The simplest interconnect is *federation*, in which brokers simulate clients and workers for each other. We would do this by connecting our frontend to the other broker's backend socket. Note that it is legal to both bind a socket to an endpoint and connect it to other endpoints.
+最简单的互连是联合，其中经纪人为彼此模拟客户和工人。我们可以通过将我们的前端连接到其他代理的后端套接字来完成此操作。请注意，将套接字绑定到端点并将其连接到其他端点是合法的。
 
 **Figure 43 - Cross-connected Brokers in Federation Model**
 
 ![fig43.png](https://github.com/imatix/zguide/raw/master/images/fig43.png)
 
-This would give us simple logic in both brokers and a reasonably good mechanism: when there are no workers, tell the other broker "ready", and accept one job from it. The problem is also that it is too simple for this problem. A federated broker would be able to handle only one task at a time. If the broker emulates a lock-step client and worker, it is by definition also going to be lock-step, and if it has lots of available workers they won't be used. Our brokers need to be connected in a fully asynchronous fashion.
+这将给我们两个经纪人的简单逻辑和一个相当好的机制：当没有工人时，告诉其他经纪人“准备好”，并从中接受一份工作。问题还在于它对于这个问题来说太简单了。联合代理一次只能处理一个任务。如果代理模拟锁定步骤客户端和工作者，则根据定义它也将是锁定步骤，并且如果它具有许多可用工作程序，则它们将不被使用。我们的经纪人需要以完全异步的方式连接。
 
-The federation model is perfect for other kinds of routing, especially service-oriented architectures (SOAs), which route by service name and proximity rather than load balancing or round robin. So don't dismiss it as useless, it's just not right for all use cases.
+联合模型非常适合其他类型的路由，尤其是面向服务的体系结构（SOA），它按服务名称和接近度而不是负载平衡或循环方式进行路由。因此，不要将其视为无用，它不适合所有用例。
 
-Instead of federation, let's look at a *peering* approach in which brokers are explicitly aware of each other and talk over privileged channels. Let's break this down, assuming we want to interconnect N brokers. Each broker has (N - 1) peers, and all brokers are using exactly the same code and logic. There are two distinct flows of information between brokers:
-
-- Each broker needs to tell its peers how many workers it has available at any time. This can be fairly simple information—just a quantity that is updated regularly. The obvious (and correct) socket pattern for this is pub-sub. So every broker opens a PUB socket and publishes state information on that, and every broker also opens a SUB socket and connects that to the PUB socket of every other broker to get state information from its peers.
-
-- Each broker needs a way to delegate tasks to a peer and get replies back, asynchronously. We'll do this using ROUTER sockets; no other combination works. Each broker has two such sockets: one for tasks it receives and one for tasks it delegates. If we didn't use two sockets, it would be more work to know whether we were reading a request or a reply each time. That would mean adding more information to the message envelope.
-
-And there is also the flow of information between a broker and its local clients and workers.
+让我们看一下对等方法，而不是联邦，让经纪人明确地相互了解并通过特权渠道进行交谈。让我们打破这一点，假设我们想要互连N个经纪人。每个代理都有（N-1）个对等体，所有代理都使用完全相同的代码和逻辑。经纪人之间有两种截然不同的信息流：
+- 每个经纪人都需要随时告诉其同行有多少工人。这可以是相当简单的信息 - 只是定期更新的数量。显而易见（和正确）的套接字模式是pub-sub。因此，每个代理打开一个PUB套接字并发布该状态信息，，以从其对等方获取状态信息。每个代理都需要一种方法将任务委派给对等方并异步地回复。我们将使用ROUTER插座完成此操作;没有其他组合有效。
+- 每个代理都有两个这样的套接字：一个用于接收任务，一个用于委托的任务。如果我们不使用两个套接字，那么每次都要知道我们是在阅读请求还是回复。这意味着在邮件信封中添加更多信息。经纪人与其本地客户和工人之间也存在信息流。
 
 
 
-| [The Naming Ceremony](http://zguide.zeromq.org/page:all#The-Naming-Ceremony) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-82) [next](http://zguide.zeromq.org/page:all#header-84) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+###  The Naming Ceremony
 
-Three flows x two sockets for each flow = six sockets that we have to manage in the broker. Choosing good names is vital to keeping a multisocket juggling act reasonably coherent in our minds. Sockets *do* something and what they do should form the basis for their names. It's about being able to read the code several weeks later on a cold Monday morning before coffee, and not feel any pain.
+每个流程有三个流x两个套接字=我们必须在代理中管理的六个套接字。选择好名字对于保持多插件杂耍行为在我们的思想中合理连贯至关重要。套接字做了一些事情，他们做的事情应该成为他们名字的基础。这是关于几个星期后在一个寒冷的星期一早上咖啡之前阅读代码，并没有感到任何痛苦。
 
-Let's do a shamanistic naming ceremony for the sockets. The three flows are:
+让我们为插座做一个萨满教的命名仪式。这三个流程是：
+-  代理与其客户和工作者之间的本地请求 - 回复流。
+-  代理与其对等代理之间的云请求 - 回复流。
+-  经纪人与其同行经纪人之间的状态流。
+找到长度相同的有意义的名称意味着我们的代码将很好地对齐。这不是一件大事，但对细节的关注有所帮助。对于每个流程，代理有两个套接字，我们可以正交地调用前端和后端。我们经常使用这些名字。前端接收信息或任务。后端将这些发送给其他对等方。概念流程是从前到后（回复从后到前以相反的方向）。因此，在我们为本教程编写的所有代码中，我们将使用这些套接字名称：
+- Localfe和localbe为当地流量。
+- Cloudfe和cloudbe为云流。
+- Statefe和statebe为州流动。
 
-- A *local* request-reply flow between the broker and its clients and workers.
-- A *cloud* request-reply flow between the broker and its peer brokers.
-- A *state* flow between the broker and its peer brokers.
+对于我们的运输而且因为我们在一个盒子上模拟整个东西，我们将使用ipc来处理所有事情。这样做的好处就是在连接方面像tcp一样工作（也就是说，它是一个断开的传输，与inproc不同），但我们不需要IP地址或DNS名称，这在这里会很痛苦。相反，我们将使用名为something-local，something-cloud和something-state的ipc端点，其中某些东西是我们模拟集群的名称。
 
-Finding meaningful names that are all the same length means our code will align nicely. It's not a big thing, but attention to details helps. For each flow the broker has two sockets that we can orthogonally call the *frontend* and *backend*. We've used these names quite often. A frontend receives information or tasks. A backend sends those out to other peers. The conceptual flow is from front to back (with replies going in the opposite direction from back to front).
-
-So in all the code we write for this tutorial, we will use these socket names:
-
-- *localfe* and *localbe* for the local flow.
-- *cloudfe* and *cloudbe* for the cloud flow.
-- *statefe* and *statebe* for the state flow.
-
-For our transport and because we're simulating the whole thing on one box, we'll use `ipc` for everything. This has the advantage of working like `tcp` in terms of connectivity (i.e., it's a disconnected transport, unlike `inproc`), yet we don't need IP addresses or DNS names, which would be a pain here. Instead, we will use `ipc` endpoints called *something*-`local`, *something*-`cloud`, and *something*-`state`, where *something* is the name of our simulated cluster.
-
-You might be thinking that this is a lot of work for some names. Why not call them s1, s2, s3, s4, etc.? The answer is that if your brain is not a perfect machine, you need a lot of help when reading code, and we'll see that these names do help. It's easier to remember "three flows, two directions" than "six different sockets".
+您可能会认为这对某些名称来说是很多工作。为什么不叫它们s1，s2，s3，s4等？答案是，如果你的大脑不是一台完美的机器，你在阅读代码时需要很多帮助，我们会看到这些名字确实有帮助。记住“三个流动，两个方向”比“六个不同的插座”更容易。
 
 **Figure 44 - Broker Socket Arrangement**
 
@@ -2459,103 +2407,73 @@ This simulation does not detect disappearance of a cloud peer. If you start seve
 
 
 
-| [Chapter 4 - Reliable Request-Reply Patterns](http://zguide.zeromq.org/page:all#Chapter-Reliable-Request-Reply-Patterns) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-86) [next](http://zguide.zeromq.org/page:all#header-88) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+# Chapter 4 - Reliable Request-Reply Patterns
 
-[Chapter 3 - Advanced Request-Reply Patterns](http://zguide.zeromq.org/page:all#advanced-request-reply) covered advanced uses of ZeroMQ's request-reply pattern with working examples. This chapter looks at the general question of reliability and builds a set of reliable messaging patterns on top of ZeroMQ's core request-reply pattern.
-
-In this chapter, we focus heavily on user-space request-reply *patterns*, reusable models that help you design your own ZeroMQ architectures:
-
-- The *Lazy Pirate* pattern: reliable request-reply from the client side
-- The *Simple Pirate* pattern: reliable request-reply using load balancing
-- The *Paranoid Pirate* pattern: reliable request-reply with heartbeating
-- The *Majordomo* pattern: service-oriented reliable queuing
-- The *Titanic* pattern: disk-based/disconnected reliable queuing
-- The *Binary Star* pattern: primary-backup server failover
-- The *Freelance* pattern: brokerless reliable request-reply
+第3章 - 高级请求 - 应答模式涵盖了ZeroMQ的请求 - 应答模式的高级用法以及工作示例。本章着眼于可靠性的一般问题，并在ZeroMQ的核心请求 - 应答模式之上构建一组可靠的消息传递模式。在本章中，我们将重点放在用户空间请求 - 回复模式，可重用模型，帮助您设计自己的ZeroMQ架构：
+- 懒惰的盗版模式：来自客户端的可靠请求-回复
+- 简单的海盗模式：使用负载平衡的可靠请求 - 回复
+- 偏执的海盗模式：可靠的请求 - 回复与心跳
+- Majordomo模式：面向服务的可靠排队
+- 泰坦尼克号模式：基于磁盘/断开连接的可靠排队
+- 二进制星形模式：主备份服务器故障转移
+- Freelance模式：无代理可靠请求 - 回复
 
 
 
-| [What is "Reliability"?](http://zguide.zeromq.org/page:all#What-is-Reliability) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-87) [next](http://zguide.zeromq.org/page:all#header-89) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### What is "Reliability"?
 
-Most people who speak of "reliability" don't really know what they mean. We can only define reliability in terms of failure. That is, if we can handle a certain set of well-defined and understood failures, then we are reliable with respect to those failures. No more, no less. So let's look at the possible causes of failure in a distributed ZeroMQ application, in roughly descending order of probability:
+大多数谈到“可靠性”的人并不真正知道他们的意思。我们只能根据失败来定义可靠性。也就是说，如果我们能够处理一组明确定义和理解的失败，那么我们就这些失败而言是可靠的。不多也不少。因此，让我们看一下分布式ZeroMQ应用程序中可能的失败原因，大概是概率的降序：
+- 应用程序代码是最糟糕的罪犯。它可能会崩溃并退出，冻结并停止响应输入，对输入运行速度太慢，耗尽所有内存，等等。
+- 系统代码（例如我们使用ZeroMQ编写的代理）可能会因应用程序代码的原因而死亡。系统代码应该比应用程序代码更可靠，但它仍然可以崩溃和刻录，尤其是当它试图为慢速客户端排队消息时内存不足。
+- 消息队列可能会溢出，通常是在学习与慢速客户端进行残酷交易的系统代码中。当队列溢出时，它开始丢弃消息。所以我们收到“丢失”的消息。
+- 网络可能失败（例如，WiFi被关闭或超出范围）。在这种情况下，ZeroMQ将自动重新连接，但与此同时，消息可能会丢失。
+- 硬件可能会失败，并在该框上运行所有进程。网络可能以异乎寻常的方式失败，例如，交换机上的某些端口可能死亡，并且网络的那些部分变得不可访问。整个数据中心可能受到雷击，地震，火灾或更普通的电力或冷却故障的影响。
 
-- Application code is the worst offender. It can crash and exit, freeze and stop responding to input, run too slowly for its input, exhaust all memory, and so on.
+使软件系统完全可靠地应对所有这些可能的故障是一项非常困难和昂贵的工作，超出了本书的范围。
 
-- System code—such as brokers we write using ZeroMQ—can die for the same reasons as application code. System code *should* be more reliable than application code, but it can still crash and burn, and especially run out of memory if it tries to queue messages for slow clients.
-
-- Message queues can overflow, typically in system code that has learned to deal brutally with slow clients. When a queue overflows, it starts to discard messages. So we get "lost" messages.
-
-- Networks can fail (e.g., WiFi gets switched off or goes out of range). ZeroMQ will automatically reconnect in such cases, but in the meantime, messages may get lost.
-
-- Hardware can fail and take with it all the processes running on that box.
-
-- Networks can fail in exotic ways, e.g., some ports on a switch may die and those parts of the network become inaccessible.
-
-- Entire data centers can be struck by lightning, earthquakes, fire, or more mundane power or cooling failures.
-
-To make a software system fully reliable against *all* of these possible failures is an enormously difficult and expensive job and goes beyond the scope of this book.
-
-Because the first five cases in the above list cover 99.9% of real world requirements outside large companies (according to a highly scientific study I just ran, which also told me that 78% of statistics are made up on the spot, and moreover never to trust a statistic that we didn't falsify ourselves), that's what we'll examine. If you're a large company with money to spend on the last two cases, contact my company immediately! There's a large hole behind my beach house waiting to be converted into an executive swimming pool.
+因为上面列表中的前五个案例覆盖了大公司以外的99.9％的实际需求（根据我刚刚开展的一项高度科学的研究，这也告诉我78％的统计数据是当场弥补的，而且从来没有相信我们没有伪造自己的统计数据，这就是我们要研究的内容。如果您是一家有资金在最后两个案例上花钱的大公司，请立即联系我公司！在我的海滨别墅后面有一个大洞，等待转换成一个行政游泳池。
 
 
 
-| [Designing Reliability](http://zguide.zeromq.org/page:all#Designing-Reliability) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-88) [next](http://zguide.zeromq.org/page:all#header-90) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### Designing Reliability
+因此，为了使事情变得非常简单，可靠性是“在代码冻结或崩溃时保持正常工作”，这种情况我们将缩短为“死亡”。但是，我们希望保持正常工作的事情比仅仅消息更复杂。我们需要采用每个核心ZeroMQ消息模式，看看如何使它工作（如果可以的话）即使代码死了。
+我们一个接一个地拿走它们：
+- 请求 - 回复：如果服务器死亡（处理请求时），客户端可以解决这个问题，因为它不会得到回复。然后它可以放弃，等待，稍后再试，找到另一台服务器，依此类推。至于客户死亡，我们现在可以将其视为“别人的问题”。
+- Pub-sub：如果客户端死了（获得了一些数据），服务器就不知道了。 Pub-sub不会将任何信息从客户端发送回服务器。但是客户可以通过带外联系服务器，例如通过请求 - 回复，并询问“请重新发送我错过的所有内容”。至于服务器死亡，这在这里超出了范围。订户还可以自我验证他们没有运行得太慢，并采取行动（例如，警告操作员并死亡）。
+- 管道：如果工人死亡（工作时），呼吸机不知道它。管道，如时间磨削齿轮，只能在一个方向上工作。但是下游收集器可以检测到一个任务没有完成，并向呼吸机发回一条消息说：“嘿，重新发送任务324！”如果呼吸机或收集器死亡，无论上游客户端最初发送的工作批次是否都会厌倦等待并重新发送整批产品。它并不优雅，但系统代码实际上不应该经常死亡。
 
-So to make things brutally simple, reliability is "keeping things working properly when code freezes or crashes", a situation we'll shorten to "dies". However, the things we want to keep working properly are more complex than just messages. We need to take each core ZeroMQ messaging pattern and see how to make it work (if we can) even when code dies.
+在本章中，我们将仅关注请求 - 回复，这是可靠消息传递的最低成果。
 
-Let's take them one-by-one:
+基本的请求 - 应答模式（对REP服务器套接字执行阻塞发送/接收的REQ客户端套接字）在处理最常见的故障类型时得分很低。如果服务器在处理请求时崩溃，则客户端将永久挂起。如果网络丢失请求或回复，则客户端将永久挂起。
 
-- Request-reply: if the server dies (while processing a request), the client can figure that out because it won't get an answer back. Then it can give up in a huff, wait and try again later, find another server, and so on. As for the client dying, we can brush that off as "someone else's problem" for now.
+由于ZeroMQ能够以静默方式重新连接对等端，负载平衡消息等，因此请求 - 应答仍然比TCP好得多。但它对于实际工作来说仍然不够好。您可以真正信任基本请求 - 回复模式的唯一情况是在同一进程中的两个线程之间，没有网络或单独的服务器进程死亡。
 
-- Pub-sub: if the client dies (having gotten some data), the server doesn't know about it. Pub-sub doesn't send any information back from client to server. But the client can contact the server out-of-band, e.g., via request-reply, and ask, "please resend everything I missed". As for the server dying, that's out of scope for here. Subscribers can also self-verify that they're not running too slowly, and take action (e.g., warn the operator and die) if they are.
+然而，通过一些额外的工作，这个简单的模式成为分布式网络中实际工作的良好基础，我们得到一组可靠的请求 - 回复（RRR）模式，我喜欢称之为海盗模式（你最终会得到这个笑话，我希望）。根据我的经验，有三种方法可以将客户端连接到服务器。每个都需要一种特定的可靠性方法：
+- 多个客户端直接与单个服务器通信。使用案例：客户需要与之交谈的单个知名服务器。我们打算处理的故障类型：服务器崩溃和重启以及网络断开连接。
+- 多个客户端与代理程序代理交谈，该代理程序将工作分配给多个工作用例：面向服务的事务处理。我们打算处理的故障类型：工作人员崩溃和重新启动，工作人员繁忙循环，工作负载过重，队列崩溃和重新启动以及网络断开连接。
+- 多个客户端与没有中间代理的多个服务器通信。使用案例：名称解析等分布式服务。我们打算处理的故障类型：服务崩溃和重启，服务繁忙循环，服务过载和网络断开。
 
-- Pipeline: if a worker dies (while working), the ventilator doesn't know about it. Pipelines, like the grinding gears of time, only work in one direction. But the downstream collector can detect that one task didn't get done, and send a message back to the ventilator saying, "hey, resend task 324!" If the ventilator or collector dies, whatever upstream client originally sent the work batch can get tired of waiting and resend the whole lot. It's not elegant, but system code should really not die often enough to matter.
-
-In this chapter we'll focus just on request-reply, which is the low-hanging fruit of reliable messaging.
-
-The basic request-reply pattern (a REQ client socket doing a blocking send/receive to a REP server socket) scores low on handling the most common types of failure. If the server crashes while processing the request, the client just hangs forever. If the network loses the request or the reply, the client hangs forever.
-
-Request-reply is still much better than TCP, thanks to ZeroMQ's ability to reconnect peers silently, to load balance messages, and so on. But it's still not good enough for real work. The only case where you can really trust the basic request-reply pattern is between two threads in the same process where there's no network or separate server process to die.
-
-However, with a little extra work, this humble pattern becomes a good basis for real work across a distributed network, and we get a set of reliable request-reply (RRR) patterns that I like to call the *Pirate* patterns (you'll eventually get the joke, I hope).
-
-There are, in my experience, roughly three ways to connect clients to servers. Each needs a specific approach to reliability:
-
-- Multiple clients talking directly to a single server. Use case: a single well-known server to which clients need to talk. Types of failure we aim to handle: server crashes and restarts, and network disconnects.
-
-- Multiple clients talking to a broker proxy that distributes work to multiple workers. Use case: service-oriented transaction processing. Types of failure we aim to handle: worker crashes and restarts, worker busy looping, worker overload, queue crashes and restarts, and network disconnects.
-
-- Multiple clients talking to multiple servers with no intermediary proxies. Use case: distributed services such as name resolution. Types of failure we aim to handle: service crashes and restarts, service busy looping, service overload, and network disconnects.
-
-Each of these approaches has its trade-offs and often you'll mix them. We'll look at all three in detail.
+这些方法中的每一种都有其权衡，通常你会混合它们。我们将详细介绍这三个方面。
 
 
 
-| [Client-Side Reliability (Lazy Pirate Pattern)](http://zguide.zeromq.org/page:all#Client-Side-Reliability-Lazy-Pirate-Pattern) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-89) [next](http://zguide.zeromq.org/page:all#header-91) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### Client-Side Reliability (Lazy Pirate Pattern)
 
-We can get very simple reliable request-reply with some changes to the client. We call this the Lazy Pirate pattern. Rather than doing a blocking receive, we:
+我们可以通过对客户端进行一些更改来获得非常简单的可靠请求 - 回复。我们称之为懒惰海盗模式。我们不是做阻止接收，而是：
+- 轮询REQ套接字并仅在确定答复到达时才从其接收。
+- 如果在超时期限内没有回复，则重新发送请求。
+- 如果在多次请求后仍然没有回复，请放弃该交易。
 
-- Poll the REQ socket and receive from it only when it's sure a reply has arrived.
-- Resend a request, if no reply has arrived within a timeout period.
-- Abandon the transaction if there is still no reply after several requests.
+如果你试图在严格的发送/接收方式以外的任何地方使用REQ套接字，你将得到一个错误（从技术上讲，REQ套接字实现了一个小的有限状态机来强制执行发送/接收乒乓，等等错误代码称为“EFSM”）。当我们想要以海盗模式使用REQ时，这有点烦人，因为我们可能会在收到回复之前发送多个请求。
 
-If you try to use a REQ socket in anything other than a strict send/receive fashion, you'll get an error (technically, the REQ socket implements a small finite-state machine to enforce the send/receive ping-pong, and so the error code is called "EFSM"). This is slightly annoying when we want to use REQ in a pirate pattern, because we may send several requests before getting a reply.
-
-The pretty good brute force solution is to close and reopen the REQ socket after an error:
+相当不错的暴力解决方案是在出错后关闭并重新打开REQ套接字：
 
 [lpclient: Lazy Pirate client in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:lpclient) | [C#](http://zguide.zeromq.org/cs:lpclient) | [Clojure](http://zguide.zeromq.org/clj:lpclient) | [Delphi](http://zguide.zeromq.org/dpr:lpclient) | [Go](http://zguide.zeromq.org/go:lpclient) | [Haskell](http://zguide.zeromq.org/hs:lpclient) | [Haxe](http://zguide.zeromq.org/hx:lpclient) | [Java](http://zguide.zeromq.org/java:lpclient) | [Lua](http://zguide.zeromq.org/lua:lpclient) | [Perl](http://zguide.zeromq.org/pl:lpclient) | [PHP](http://zguide.zeromq.org/php:lpclient) | [Python](http://zguide.zeromq.org/py:lpclient) | [Ruby](http://zguide.zeromq.org/rb:lpclient) | [Tcl](http://zguide.zeromq.org/tcl:lpclient) | [Ada | Basic | CL | Erlang | F# | Felix | Node.js | Objective-C | ooc | Q | Racket | Scala](http://zguide.zeromq.org/main:translate)
 
+Run this together with the matching server:
 [lpserver: Lazy Pirate server in C](javascript:;)
 
 
@@ -2563,7 +2481,7 @@ The pretty good brute force solution is to close and reopen the REQ socket after
 
 ![fig47.png](https://github.com/imatix/zguide/raw/master/images/fig47.png)
 
-To run this test case, start the client and the server in two console windows. The server will randomly misbehave after a few messages. You can check the client's response. Here is typical output from the server:
+要运行此测试用例，请在两个控制台窗口中启动客户端和服务器。几条消息后服务器会随机出错。您可以查看客户的回复。以下是服务器的典型输出：
 
 ```
 I: normal request (1)
@@ -2588,66 +2506,63 @@ I: connecting to server...
 E: server seems to be offline, abandoning
 ```
 
-The client sequences each message and checks that replies come back exactly in order: that no requests or replies are lost, and no replies come back more than once, or out of order. Run the test a few times until you're convinced that this mechanism actually works. You don't need sequence numbers in a production application; they just help us trust our design.
+客户端对每条消息进行排序，并检查回复是否按顺序返回：没有请求或回复丢失，并且没有回复多次或无序回复。运行测试几次，直到你确信这个机制确实有效。您不需要生产应用程序中的序列号;他们只是帮助我们信任我们的设计。
 
-The client uses a REQ socket, and does the brute force close/reopen because REQ sockets impose that strict send/receive cycle. You might be tempted to use a DEALER instead, but it would not be a good decision. First, it would mean emulating the secret sauce that REQ does with envelopes (if you've forgotten what that is, it's a good sign you don't want to have to do it). Second, it would mean potentially getting back replies that you didn't expect.
+客户端使用REQ套接字，并且强制关闭/重新打开，因为REQ套接字强制执行严格的发送/接收周期。您可能会想要使用经销商，但这不是一个好的决定。首先，它意味着要模仿REQ对信封所做的秘密调味（如果你忘记了它是什么，那么这是一个你不想要这样做的好兆头）。其次，这可能意味着可能会收到您没想到的回复。
 
-Handling failures only at the client works when we have a set of clients talking to a single server. It can handle a server crash, but only if recovery means restarting that same server. If there's a permanent error, such as a dead power supply on the server hardware, this approach won't work. Because the application code in servers is usually the biggest source of failures in any architecture, depending on a single server is not a great idea.
+当我们有一组客户端与单个服务器通信时，仅在客户端处理故障。它可以处理服务器崩溃，但仅当恢复意味着重新启动同一服务器时。如果存在永久性错误，例如服务器硬件上的电源耗尽，则此方法将不起作用。因为服务器中的应用程序代码通常是任何架构中最大的故障源，所以取决于单个服务器并不是一个好主意。
 
-So, pros and cons:
-
-- Pro: simple to understand and implement.
-- Pro: works easily with existing client and server application code.
-- Pro: ZeroMQ automatically retries the actual reconnection until it works.
-- Con: doesn't failover to backup or alternate servers.
-
+所以，利弊：
+- 利：简单易懂和实施。
+- 利：使用现有客户端和服务器应用程序代码轻松工作。
+- 利：ZeroMQ自动重试实际的重新连接，直到它工作。
+- 弊：不会故障转移到备份或备用服务器。
 
 
-| [Basic Reliable Queuing (Simple Pirate Pattern)](http://zguide.zeromq.org/page:all#Basic-Reliable-Queuing-Simple-Pirate-Pattern) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-90) [next](http://zguide.zeromq.org/page:all#header-92) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
 
-Our second approach extends the Lazy Pirate pattern with a queue proxy that lets us talk, transparently, to multiple servers, which we can more accurately call "workers". We'll develop this in stages, starting with a minimal working model, the Simple Pirate pattern.
 
-In all these Pirate patterns, workers are stateless. If the application requires some shared state, such as a shared database, we don't know about it as we design our messaging framework. Having a queue proxy means workers can come and go without clients knowing anything about it. If one worker dies, another takes over. This is a nice, simple topology with only one real weakness, namely the central queue itself, which can become a problem to manage, and a single point of failure.
+
+### Basic Reliable Queuing (Simple Pirate Pattern)
+
+我们的第二种方法是使用队列代理扩展Lazy Pirate模式，让我们透明地与多个服务器通信，我们可以更准确地称之为“工作者”。我们将分阶段开发，从最小的工作模型，简单的海盗模式开始。
+
+在所有这些海盗模式中，工人都是无国籍的。如果应用程序需要某些共享状态（例如共享数据库），我们在设计消息传递框架时就不会知道它。拥有队列代理意味着工作人员可以来来去去，而客户对此一无所知。如果一个工人死亡，另一个工人接管。这是一个很好的，简单的拓扑结构，只有一个真正的弱点，即中央队列本身，它可能成为一个需要管理的问题，以及一个单一的故障点。
 
 **Figure 48 - The Simple Pirate Pattern**
 
 ![fig48.png](https://github.com/imatix/zguide/raw/master/images/fig48.png)
 
-The basis for the queue proxy is the load balancing broker from [Chapter 3 - Advanced Request-Reply Patterns](http://zguide.zeromq.org/page:all#advanced-request-reply). What is the very *minimum* we need to do to handle dead or blocked workers? Turns out, it's surprisingly little. We already have a retry mechanism in the client. So using the load balancing pattern will work pretty well. This fits with ZeroMQ's philosophy that we can extend a peer-to-peer pattern like request-reply by plugging naive proxies in the middle.
+队列代理的基础是第3章 - 高级请求 - 应答模式中的负载平衡代理。处理死亡或封锁工人需要做的最低限度是什么？事实证明，这一点令人惊讶。我们已经在客户端有一个重试机制。因此使用负载平衡模式将非常有效。这符合ZeroMQ的理念，即我们可以通过在中间插入天真的代理来扩展像请求 - 回复这样的点对点模式。
 
-We don't need a special client; we're still using the Lazy Pirate client. Here is the queue, which is identical to the main task of the load balancing broker:
+我们不需要特殊的客户;我们还在使用Lazy Pirate客户端。这是队列，与负载平衡代理的主要任务相同：
 
 [spqueue: Simple Pirate queue in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:spqueue) | [C#](http://zguide.zeromq.org/cs:spqueue) | [Clojure](http://zguide.zeromq.org/clj:spqueue) | [Delphi](http://zguide.zeromq.org/dpr:spqueue) | [Go](http://zguide.zeromq.org/go:spqueue) | [Haskell](http://zguide.zeromq.org/hs:spqueue) | [Haxe](http://zguide.zeromq.org/hx:spqueue) | [Java](http://zguide.zeromq.org/java:spqueue) | [Lua](http://zguide.zeromq.org/lua:spqueue) | [PHP](http://zguide.zeromq.org/php:spqueue) | [Python](http://zguide.zeromq.org/py:spqueue) | [Tcl](http://zguide.zeromq.org/tcl:spqueue) | [Ada | Basic | CL | Erlang | F# | Felix | Node.js | Objective-C | ooc | Perl | Q | Racket | Ruby | Scala](http://zguide.zeromq.org/main:translate)
 
+这是工作者，它使用Lazy Pirate服务器并使其适应负载平衡模式（使用REQ“就绪”信令）：
 [spworker: Simple Pirate worker in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:spworker) | [C#](http://zguide.zeromq.org/cs:spworker) | [Clojure](http://zguide.zeromq.org/clj:spworker) | [Delphi](http://zguide.zeromq.org/dpr:spworker) | [Go](http://zguide.zeromq.org/go:spworker) | [Haskell](http://zguide.zeromq.org/hs:spworker) | [Haxe](http://zguide.zeromq.org/hx:spworker) | [Java](http://zguide.zeromq.org/java:spworker) | [Lua](http://zguide.zeromq.org/lua:spworker) | [PHP](http://zguide.zeromq.org/php:spworker) | [Python](http://zguide.zeromq.org/py:spworker) | [Tcl](http://zguide.zeromq.org/tcl:spworker) | [Ada | Basic | CL | Erlang | F# | Felix | Node.js | Objective-C | ooc | Perl | Q | Racket | Ruby | Scala](http://zguide.zeromq.org/main:translate)
 
+要对此进行测试，请按任意顺序启动少数工作程序，Lazy Pirate客户端和队列。你会看到工人最终都崩溃并烧毁，客户重试然后放弃。队列永远不会停止，您可以重新启动工作人员和客户端。此模型适用于任意数量的客户和工作人员。
 
 
-| [Robust Reliable Queuing (Paranoid Pirate Pattern)](http://zguide.zeromq.org/page:all#Robust-Reliable-Queuing-Paranoid-Pirate-Pattern) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-91) [next](http://zguide.zeromq.org/page:all#header-93) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### 强大可靠的排队（偏执海盗模式）Robust Reliable Queuing (Paranoid Pirate Pattern)
 
 **Figure 49 - The Paranoid Pirate Pattern**
 
 ![fig49.png](https://github.com/imatix/zguide/raw/master/images/fig49.png)
 
-The Simple Pirate Queue pattern works pretty well, especially because it's just a combination of two existing patterns. Still, it does have some weaknesses:
+Simple Pirate Queue模式非常有效，特别是因为它只是两个现有模式的组合。它仍然存在一些缺点：
+- 面对队列崩溃和重启，它并不健壮。客户将恢复，但工人不会。虽然ZeroMQ会自动重新连接工作服务器，但就新启动的队列而言，工作人员尚未准备就绪，因此不存在。要解决这个问题，我们必须从队列到工作人员进行心跳检测，以便工作人员可以检测队列何时消失。
+- 队列不检测工作程序故障，因此如果工作程序在空闲时死亡，则队列无法将其从工作队列中删除，直到队列向其发送请求为止。客户端等待并重试。这不是一个关键问题，但并不好。为了使这项工作正常，我们从工作人员到队列进行心跳，以便队列可以在任何阶段检测丢失的工作人员。
 
-- It's not robust in the face of a queue crash and restart. The client will recover, but the workers won't. While ZeroMQ will reconnect workers' sockets automatically, as far as the newly started queue is concerned, the workers haven't signaled ready, so don't exist. To fix this, we have to do heartbeating from queue to worker so that the worker can detect when the queue has gone away.
+我们将在一个适当迂腐的偏执狂海盗模式中解决这些问题。
 
-- The queue does not detect worker failure, so if a worker dies while idle, the queue can't remove it from its worker queue until the queue sends it a request. The client waits and retries for nothing. It's not a critical problem, but it's not nice. To make this work properly, we do heartbeating from worker to queue, so that the queue can detect a lost worker at any stage.
-
-We'll fix these in a properly pedantic Paranoid Pirate Pattern.
-
-We previously used a REQ socket for the worker. For the Paranoid Pirate worker, we'll switch to a DEALER socket. This has the advantage of letting us send and receive messages at any time, rather than the lock-step send/receive that REQ imposes. The downside of DEALER is that we have to do our own envelope management (re-read [Chapter 3 - Advanced Request-Reply Patterns](http://zguide.zeromq.org/page:all#advanced-request-reply) for background on this concept).
+我们以前为工人使用了REQ套接字。对于Paranoid Pirate工作人员，我们将切换到DEALER套接字。这样做的好处是让我们可以随时发送和接收消息，而不是REQ强加的锁步发送/接收。 DEALER的缺点是我们必须自己进行信封管理（重新阅读第3章 - 高级请求 - 回复模式以了解此概念的背景）。
 
 We're still using the Lazy Pirate client. Here is the Paranoid Pirate queue proxy:
 
@@ -2655,19 +2570,16 @@ We're still using the Lazy Pirate client. Here is the Paranoid Pirate queue prox
 
 
 [C++](http://zguide.zeromq.org/cpp:ppqueue) | [C#](http://zguide.zeromq.org/cs:ppqueue) | [Go](http://zguide.zeromq.org/go:ppqueue) | [Haskell](http://zguide.zeromq.org/hs:ppqueue) | [Haxe](http://zguide.zeromq.org/hx:ppqueue) | [Java](http://zguide.zeromq.org/java:ppqueue) | [Lua](http://zguide.zeromq.org/lua:ppqueue) | [PHP](http://zguide.zeromq.org/php:ppqueue) | [Python](http://zguide.zeromq.org/py:ppqueue) | [Tcl](http://zguide.zeromq.org/tcl:ppqueue) | [Ada | Basic | Clojure | CL | Delphi | Erlang | F# | Felix | Node.js | Objective-C | ooc | Perl | Q | Racket | Ruby | Scala](http://zguide.zeromq.org/main:translate)
-
+队列通过工作者的心跳扩展了负载平衡模式。心跳是那些很难做到的“简单”事情之一。我会在一秒钟内解释更多。
 Here is the Paranoid Pirate worker:
 
 [ppworker: Paranoid Pirate worker in C](javascript:;)
 
 
 [C++](http://zguide.zeromq.org/cpp:ppworker) | [C#](http://zguide.zeromq.org/cs:ppworker) | [Go](http://zguide.zeromq.org/go:ppworker) | [Haskell](http://zguide.zeromq.org/hs:ppworker) | [Haxe](http://zguide.zeromq.org/hx:ppworker) | [Java](http://zguide.zeromq.org/java:ppworker) | [Lua](http://zguide.zeromq.org/lua:ppworker) | [PHP](http://zguide.zeromq.org/php:ppworker) | [Python](http://zguide.zeromq.org/py:ppworker) | [Tcl](http://zguide.zeromq.org/tcl:ppworker) | [Ada | Basic | Clojure | CL | Delphi | Erlang | F# | Felix | Node.js | Objective-C | ooc | Perl | Q | Racket | Ruby | Scala](http://zguide.zeromq.org/main:translate)
-
-- The code includes simulation of failures, as before. This makes it (a) very hard to debug, and (b) dangerous to reuse. When you want to debug this, disable the failure simulation.
-
-- The worker uses a reconnect strategy similar to the one we designed for the Lazy Pirate client, with two major differences: (a) it does an exponential back-off, and (b) it retries indefinitely (whereas the client retries a few times before reporting a failure).
-
-Try the client, queue, and workers, such as by using a script like this:
+关于这个例子的一些评论：
+- 该代码包括以前的故障模拟。这使得它（a）很难调试，（b）重用是危险的。如果要调试此功能，请禁用故障模拟。
+- 工作者使用类似于我们为Lazy Pirate客户端设计的重新连接策略，有两个主要区别：（a）它做指数后退，（b）它无限重试（而客户端重试几次之前）报告失败）。尝试使用客户端，队列和工作程序，例如使用如下脚本：
 
 ```
 ppqueue &
@@ -2678,19 +2590,15 @@ done
 lpclient &
 ```
 
-You should see the workers die one-by-one as they simulate a crash, and the client eventually give up. You can stop and restart the queue and both client and workers will reconnect and carry on. And no matter what you do to queues and workers, the client will never get an out-of-order reply: the whole chain either works, or the client abandons.
+你应该看到工人在模拟崩溃时一个接一个地死去，客户最终放弃了。您可以停止并重新启动队列，客户端和工作人员将重新连接并继续运行。无论你对队列和工作人员做了什么，客户端都不会得到无序的回复：整个链条都有效，或者客户放弃。
 
 
 
-| [Heartbeating](http://zguide.zeromq.org/page:all#Heartbeating) | [top](http://zguide.zeromq.org/page:all#top) [prev](http://zguide.zeromq.org/page:all#header-92) [next](http://zguide.zeromq.org/page:all#header-94) |
-| ------------------------------------------------------------ | ------------------------------------------------------------ |
-|                                                              |                                                              |
+### Heartbeating
 
-Heartbeating solves the problem of knowing whether a peer is alive or dead. This is not an issue specific to ZeroMQ. TCP has a long timeout (30 minutes or so), that means that it can be impossible to know whether a peer has died, been disconnected, or gone on a weekend to Prague with a case of vodka, a redhead, and a large expense account.
+心跳解决了知道同伴是活着还是死亡的问题。这不是ZeroMQ特有的问题。 TCP有一个很长的超时（大约30分钟左右），这意味着无法知道一个同伴是否已经死亡，已经断开连接，或者周末去了布拉格的伏特加，一个红发和一大笔费用帐户。
 
-It's is not easy to get heartbeating right. When writing the Paranoid Pirate examples, it took about five hours to get the heartbeating working properly. The rest of the request-reply chain took perhaps ten minutes. It is especially easy to create "false failures", i.e., when peers decide that they are disconnected because the heartbeats aren't sent properly.
-
-We'll look at the three main answers people use for heartbeating with ZeroMQ.
+心脏病正好并不容易。在编写Paranoid Pirate示例时，花了大约五个小时才能使心跳正常工作。请求 - 回复链的其余部分大概花了十分钟。创建“错误失败”尤其容易，即，当对等体因为心跳未正确发送而决定断开连接时。我们将看看人们使用ZeroMQ进行心跳的三个主要答案。
 
 
 
